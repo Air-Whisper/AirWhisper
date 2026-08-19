@@ -1,0 +1,36 @@
+name: Build Check
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  build:
+    name: Compile iOS + watchOS
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Build iOS Companion App
+        run: |
+          xcodebuild build \
+            -project AirWhisper.xcodeproj \
+            -scheme AirWhisperCompanionApp \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+
+      - name: Build watchOS App
+        run: |
+          xcodebuild build \
+            -project AirWhisper.xcodeproj \
+            -scheme "WAAirWhisper Watch App Watch App" \
+            -destination 'generic/platform=watchOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
