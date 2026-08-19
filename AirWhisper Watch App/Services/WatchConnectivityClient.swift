@@ -19,6 +19,7 @@ final class WatchConnectivityClient: NSObject, ObservableObject {
     @Published private(set) var receivedVoiceGuidance: Bool = false
     @Published private(set) var receivedTapDetectorEnabled: Bool = false
     @Published private(set) var wasAccountDeleted: Bool
+    @Published private(set) var currentAccessToken: String?
 
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
@@ -38,6 +39,7 @@ final class WatchConnectivityClient: NSObject, ObservableObject {
         wasAccountDeleted = UserDefaults.standard.bool(forKey: accountDeletedKey)
         super.init()
 
+        currentAccessToken = UserDefaults.standard.string(forKey: "watchJWTToken")
         guard WCSession.isSupported() else { return }
         let session = WCSession.default
         session.delegate = self
@@ -181,6 +183,7 @@ final class WatchConnectivityClient: NSObject, ObservableObject {
             guard let jwt = try? decoder.decode(AWJWTPayload.self, from: data) else { return }
             markInitialCompanionSyncReceived()
             UserDefaults.standard.set(jwt.accessToken, forKey: "watchJWTToken")
+            currentAccessToken = jwt.accessToken
 
         case .calibrationReset:
             SurfaceTapDetector.shared.resetCalibration()
@@ -234,6 +237,7 @@ final class WatchConnectivityClient: NSObject, ObservableObject {
         receivedVoiceGuidance = false
         receivedTapDetectorEnabled = false
         voiceGuidanceEnabledAt = nil
+        currentAccessToken = nil
 
         UserDefaults.standard.removeObject(forKey: initialCompanionSyncKey)
         UserDefaults.standard.removeObject(forKey: "watchJWTToken")
@@ -273,6 +277,25 @@ final class WatchConnectivityClient: NSObject, ObservableObject {
             }
         } errorHandler: { error in
             Log.error(Log.wc, "WatchConnectivityClient: setup status request failed  - \(error.localizedDescription)")
+        }
+    }
+
+    func clearAccessToken() {
+        currentAccessToken = nil
+        UserDefaults.standard.removeObject(forKey: "watchJWTToken")
+    }
+
+    func requestTokenRefresh() {
+        guard WCSession.isSupported() else { return }
+        let payload = AWRefreshRequestPayload(type: .jwtRefreshRequest)
+        guard let data = try? encoder.encode(payload) else { return }
+        let session = WCSession.default
+        if session.isReachable {
+            session.sendMessageData(data, replyHandler: nil) { error in
+                Log.error(Log.wc, "WatchConnectivityClient: refresh request failed - \(error.localizedDescription)")
+            }
+        } else {
+            session.transferUserInfo(["payload": data])
         }
     }
 }

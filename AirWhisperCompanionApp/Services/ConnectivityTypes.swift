@@ -15,6 +15,11 @@ enum AWPayloadType: String, Codable, Equatable {
     case setupStatusResponse
     case calibrationReset
     case calibrationSync
+    case jwtRefreshRequest
+}
+
+struct AWRefreshRequestPayload: Codable {
+    let type: AWPayloadType
 }
 
 struct AWJWTPayload: Codable {
