@@ -202,7 +202,7 @@ final class WatchConnectivityClient: NSObject, ObservableObject {
             guard let status = try? decoder.decode(AWSetupStatusResponsePayload.self, from: data) else { return }
             handleSetupStatusResponse(status)
 
-        case .messageHistory, .setupStatusRequest, .calibrationSync:
+        case .messageHistory, .setupStatusRequest, .calibrationSync, .jwtRefreshRequest:
             break
         }
     }
