@@ -261,18 +261,6 @@ extension WatchConnectivityManager: WCSessionDelegate {
                     timing: calPayload.doubleTapTiming
                 )
             }
-        
-        case .jwtRefreshRequest:
-            print("[WatchConnectivity] Watch requested a token refresh!")
-            Task {
-                do {
-                    // This calls the backend, gets a new token, saves it to Keychain,
-                    // and automatically calls sendJWTToken() to push it back to the watch.
-                    _ = try await AuthService.refreshAccessToken()
-                } catch {
-                    print("[WatchConnectivity] Failed to refresh token for watch: \(error)")
-                }
-            }
 
         default:
             break

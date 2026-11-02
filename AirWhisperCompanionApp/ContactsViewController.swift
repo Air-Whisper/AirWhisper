@@ -22,19 +22,22 @@ class ContactsViewController: UIViewController //Displays list of saved contacts
 
     private func setupVerifiedContacts() {
         let currentContacts = DataManager.shared.getPeople()
-        let verifiedNames = ["John Doe"]
+        let verifiedNames = ["Person 1", "Person 2", "Person 3", "Person 4"]
         
         let hasAllVerified = verifiedNames.allSatisfy { name in
             currentContacts.contains { $0.name == name }
         }
         
-        if !hasAllVerified || currentContacts.count != 1 {
+        if !hasAllVerified || currentContacts.count != 4 {
             for contact in currentContacts {
                 DataManager.shared.remove(withId: contact.id)
             }
             
             let verifiedNumbers = [
-                MyPeople(name: "John Doe", phoneNumber: "0000000000")
+                MyPeople(name: "Person 1", phoneNumber: "+918218517195"),
+                MyPeople(name: "Person 2", phoneNumber: "+919149062964"),
+                MyPeople(name: "Person 3", phoneNumber: "+918439007296"),
+                MyPeople(name: "Person 4", phoneNumber: "+918941040875")
             ]
             for person in verifiedNumbers {
                 DataManager.shared.add(person)
@@ -63,7 +66,20 @@ class ContactsViewController: UIViewController //Displays list of saved contacts
 
     @IBAction func importFromDeviceTapped(_ sender: UIButton) //Called when the user taps the "Import from Device" button.
     {
-        showAlert(title: "Paid Feature", message: "This is a paid feature and will be added soon")
+        showAlert(title: "Beta Testing Mode", message: "SMS sending is temporarily limited to the 4 verified contacts of the Team Members. Full contact support will be added in a future update.")
+        /*
+        let currentCount = DataManager.shared.getPeople().count 
+        guard currentCount < DataManager.maxContacts else { //Checks if the user has already reached the maximum number of contacts allowed. If so, it shows an alert and prevents opening the contact picker.
+            showAlert(title: "Limit Reached",
+                      message: "You can save up to \(DataManager.maxContacts) contacts. Remove an existing contact to add a new one.")
+            return
+        }
+
+        let picker = CNContactPickerViewController()
+        picker.delegate = self
+        picker.predicateForEnablingContact = NSPredicate(value: true)
+        present(picker, animated: true)
+        */
     }
 
     private func showAlert(title: String, message: String) 
@@ -81,14 +97,8 @@ class ContactsViewController: UIViewController //Displays list of saved contacts
         )
         alert.setValue(attributedMessage, forKey: "attributedMessage")
         
-        alert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
-            if alert.isViewLoaded && alert.view.window != nil {
-                alert.dismiss(animated: true, completion: nil)
-            }
-        }
     }
 
     override func viewDidAppear(_ animated: Bool) {

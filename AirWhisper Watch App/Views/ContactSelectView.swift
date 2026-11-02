@@ -12,7 +12,6 @@ struct ContactSelectView: View
     @State private var errorMessage: String = ""
     @State private var isSending = false
     @State private var focusedIndex: Int = 0
-    @State private var showPaidFeatureAlert = false
     
     @AccessibilityFocusState private var focusedContactId: UUID?
 
@@ -87,23 +86,6 @@ struct ContactSelectView: View
         } message: {
             Text(errorMessage)
         }
-        .alert("Paid Feature", isPresented: $showPaidFeatureAlert) {
-            Button("OK", role: .cancel) {
-                dismiss()
-            }
-        } message: {
-            Text("This is a paid feature and will be added soon")
-        }
-        .onChange(of: showPaidFeatureAlert) { _, isPresented in
-            if isPresented {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
-                    if showPaidFeatureAlert {
-                        showPaidFeatureAlert = false
-                        dismiss()
-                    }
-                }
-            }
-        }
         .onAppear {
             setupTapDetector()
         }
@@ -121,7 +103,44 @@ struct ContactSelectView: View
     private func sendMessage(to contact: AWContact) 
     {
         guard !isSending else { return }
-        showPaidFeatureAlert = true
+
+        guard let phoneNumber = contact.phoneNumber, !phoneNumber.isEmpty else {
+            errorMessage = "No phone number for this contact"
+            showErrorAlert = true
+            return
+        }
+
+        let cleanNumber = phoneNumber.filter { "+0123456789".contains($0) }
+        
+        isSending = true
+        
+        Task {
+            do {
+                let _ = try await RenderSMSSender.shared.sendSMS(to: cleanNumber, body: messageText)
+                
+                await MainActor.run {
+                    isSending = false
+                    
+                    connectivity.sendMessageToHistory(
+                        message: messageText,
+                        contactId: contact.id,
+                        contactName: contact.name
+                    )
+                    
+                    if isFromQuickPhrase {
+                        PhraseManager.shared.markPhraseUsed(messageText)
+                    }
+                    
+                    showSuccessAlert = true
+                }
+            } catch {
+                await MainActor.run {
+                    isSending = false
+                    errorMessage = error.localizedDescription
+                    showErrorAlert = true
+                }
+            }
+        }
     }
     
     private func setupTapDetector() {

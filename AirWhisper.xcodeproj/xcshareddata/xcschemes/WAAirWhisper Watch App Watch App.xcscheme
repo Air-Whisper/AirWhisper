@@ -46,7 +46,6 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "DFB2AEBA2F5AB454007FE940"
             BuildableName = "WAAirWhisperWatchApp.app"
-            BlueprintName = "WAAirWhisper Watch App Watch App"
             ReferencedContainer = "container:AirWhisper.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -63,7 +62,6 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "DFB2AEBA2F5AB454007FE940"
             BuildableName = "WAAirWhisperWatchApp.app"
-            BlueprintName = "WAAirWhisper Watch App Watch App"
             ReferencedContainer = "container:AirWhisper.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
