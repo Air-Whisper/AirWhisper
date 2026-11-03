@@ -30,56 +30,88 @@ struct OnboardingView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            ZStack {
+            let size = geometry.size
+            let safeInsets = geometry.safeAreaInsets
+            let arcHeight = min(362, size.height * 0.48)
+            let videoTop = safeInsets.top + 150
+            let videoHeight = max(0, size.height - videoTop - arcHeight + 30)
+
+            ZStack(alignment: .bottom) {
                 Design.background
 
-                // Decorative arc (storyboard: arcImageView)
+                // Keep the video behind the arc so the blue shape masks its lower edge.
+                LoopingVideoView(
+                    resourceName: currentItem.video,
+                    videoGravity: currentItem.video == "HowToUse2Video" ? .resizeAspectFill : .resizeAspect
+                )
+                .frame(width: size.width, height: videoHeight)
+                .position(x: size.width / 2, y: videoTop + videoHeight / 2)
+                .opacity(mediaAlpha)
+                .offset(y: mediaOffsetY)
+                .zIndex(0)
+
+                // The original arc is a full-width, 362pt image pinned to the bottom.
                 Image("arc")
                     .resizable()
-                    .scaledToFit()
-                    .frame(maxHeight: geometry.size.height * 0.35)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .frame(width: size.width, height: arcHeight)
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+                    .clipped()
+                    .zIndex(1)
 
-                VStack(spacing: 0) {
+                VStack(alignment: .leading, spacing: 20) {
                     Text(currentItem.title)
-                        .font(.system(size: 30, weight: .bold))
-                        .frame(maxWidth: .infinity, alignment: .center)
+                        .font(.system(size: 34, weight: .heavy))
+                        .foregroundStyle(.white)
                         .offset(y: titleOffsetY)
                         .opacity(titleAlpha)
 
                     Text(currentItem.description)
-                        .font(.system(size: 16))
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.top, 8)
-                        .padding(.horizontal, 24)
+                        .font(.body)
+                        .foregroundStyle(.white)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.leading, 5)
                         .offset(y: descriptionOffsetY)
                         .opacity(descriptionAlpha)
-
-                    LoopingVideoView(
-                        resourceName: currentItem.video,
-                        videoGravity: currentItem.video == "HowToUse2Video" ? .resizeAspectFill : .resizeAspect
-                    )
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .opacity(mediaAlpha)
-                    .offset(y: mediaOffsetY)
-
-                    PageIndicatorView(numberOfPages: onboardingScreens.count, currentPage: currentPage)
-
-                    Button {
-                        // From skipButtonTapped: swap root to the login screen.
-                        appState.route = .auth
-                    } label: {
-                        Text(skipButtonTitle)
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .frame(width: 200, height: 50)
-                            .background(Design.brandBlue)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                    }
-                    .padding(.bottom, geometry.safeAreaInsets.bottom + 12)
                 }
-                .padding(.top, geometry.safeAreaInsets.top + 24)
+                .frame(width: max(0, size.width - 65), alignment: .leading)
+                .padding(.leading, 30)
+                .padding(.bottom, safeInsets.bottom + 148)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                .zIndex(2)
+
+                VStack(spacing: 0) {
+                    HStack(spacing: 12) {
+                        Image("AirWhisperLogoLightmode")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 278, height: 54, alignment: .leading)
+                            .accessibilityHidden(true)
+
+                        Spacer(minLength: 0)
+
+                        Button(action: skipOnboarding) {
+                            Text(skipButtonTitle)
+                                .font(.system(size: 17))
+                                .foregroundStyle(Color(uiColor: .systemBlue))
+                                .frame(minWidth: 60, minHeight: 35)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.leading, -8)
+                    .padding(.trailing, safeInsets.trailing + 35)
+                    .padding(.top, safeInsets.top + 20)
+
+                    Spacer(minLength: 0)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .zIndex(3)
+
+                PageIndicatorView(numberOfPages: onboardingScreens.count, currentPage: currentPage)
+                    .frame(height: 26)
+                    .padding(.bottom, safeInsets.bottom + 20)
+                    .zIndex(3)
             }
         }
         .ignoresSafeArea()
@@ -98,6 +130,10 @@ struct OnboardingView: View {
 
     private var skipButtonTitle: String {
         currentPage == onboardingScreens.count - 1 ? "Next" : "Skip"
+    }
+
+    private func skipOnboarding() {
+        appState.route = .auth
     }
 
     // MARK: - Paging (ported from goToNextPage / goToPreviousPage)
