@@ -7,11 +7,11 @@ enum Design {
 
     /// Primary brand color used by all primary buttons and the OTP accent.
     /// Storyboard value: RGB(10, 96, 198) = (0.039, 0.376, 0.776).
-    static let brandBlue = Color(red: 0.039, green: 0.376, blue: 0.776, alpha: 1)
+    static let brandBlue = Color(red: 0.039, green: 0.376, blue: 0.776, opacity: 1)
 
     /// Destructive red used by the account-deletion OTP screen.
     /// Storyboard value: RGB(255, 56, 60).
-    static let destructiveRed = Color(red: 1, green: 0.2196, blue: 0.2353, alpha: 1)
+    static let destructiveRed = Color(red: 1, green: 0.2196, blue: 0.2353, opacity: 1)
 
     /// Neutral button background used by the Google button (storyboard 0.949 gray).
     static let neutralButton = Color(white: 0.949)
