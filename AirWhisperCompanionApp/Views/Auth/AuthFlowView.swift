@@ -47,26 +47,23 @@ struct AuthFlowView: View {
             }
             .navigationBarHidden(true)
         }
-        // OTP verification sheet
+        // OTP verification sheet (pageSheet — no explicit detents, matching UIKit .pageSheet)
         .sheet(item: $otpMode) { mode in
             OTPVerificationView(mode: mode) {
                 // Dismiss sheet first, then trigger watch onboarding (order matters)
                 otpMode = nil
                 navigateToWatchOnboarding()
             }
-            .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
         }
-        // Forgot password sheet (wrapped in NavigationStack like UINavigationController)
+        // Forgot password sheet (wrapped in NavigationStack like UINavigationController; .large detent)
         .sheet(isPresented: $showForgotPassword) {
             NavigationStack {
                 ForgotPasswordView(onPasswordResetCompleted: {
                     showForgotPassword = false
-                    showToast("Password has been reset. Please sign in with your new password.")
+                    showToast("Password has been changed successfully")
                 })
             }
             .presentationDetents([.large])
-            .presentationDragIndicator(.visible)
         }
         // Toast overlay
         .overlay(alignment: .bottom) {

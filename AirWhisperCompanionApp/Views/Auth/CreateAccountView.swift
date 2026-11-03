@@ -1,0 +1,547 @@
+import SwiftUI
+import UIKit
+import AuthenticationServices
+import GoogleSignIn
+
+/// Create Account screen — 1:1 port of `CreateAccountContentViewController`.
+///
+/// Parity notes (from the original):
+/// - No logo and no big title on this screen (storyboard scene has fields only).
+/// - Create button is disabled + 0.45 alpha until the ToS checkbox is accepted.
+/// - Apple sign-in sets an Apple-ID session (iCloud sync); email/Google show
+///   the "Data Stored Locally" notice before continuing.
+struct CreateAccountView: View {
+
+    let switchToSignIn: () -> Void
+    let onRequestOTP: (OtpFlowMode) -> Void
+    let onWatchOnboardingRequired: () -> Void
+
+    // MARK: - Form state
+    @State private var name = ""
+    @State private var email = ""
+    @State private var password = ""
+    @State private var tosAccepted = false
+
+    // MARK: - Loading / error state
+    @State private var isCreateSubmitting = false
+    @State private var isGoogleSubmitting = false
+    @State private var isAppleSubmitting = false
+
+    @State private var alertTitle = ""
+    @State private var alertMessage = ""
+    @State private var isAlertPresented = false
+
+    @State private var isLocalStorageAlertPresented = false
+
+    // MARK: - Legal document sheet state
+    private enum LegalSheetContent: Identifiable {
+        case termsOfService
+        case privacyPolicy
+
+        var id: Int {
+            switch self {
+            case .termsOfService: return 1
+            case .privacyPolicy: return 2
+            }
+        }
+
+        var title: String {
+            switch self {
+            case .termsOfService: return "Terms of Service"
+            case .privacyPolicy: return "Privacy Policy"
+        }
+        }
+
+        var resourceName: String {
+            switch self {
+            case .termsOfService: return "TERMS_OF_SERVICE"
+            case .privacyPolicy: return "PRIVACY_POLICY"
+            }
+        }
+
+        var text: String {
+            // Ports LegalDocumentViewController.bundledURL(for:) loading.
+            if let url = Bundle.main.url(forResource: resourceName, withExtension: "md"),
+               let contents = try? String(contentsOf: url, encoding: .utf8) {
+                return contents
+            }
+            return "Unable to load this document. Please try again later."
+        }
+    }
+    @State private var legalSheetContent: LegalSheetContent?
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 24) {
+                AuthTextField(placeholder: "Full Name", text: $name, fontSize: 16)
+
+                AuthTextField(
+                    placeholder: "Email",
+                    text: $email,
+                    keyboardType: .emailAddress,
+                    fontSize: 16
+                )
+
+                AuthTextField(placeholder: "Password", text: $password, isSecure: true, fontSize: 16)
+
+                // MARK: Terms of Service row (checkbox + tappable legal links)
+                HStack(alignment: .top, spacing: 10) {
+                    Button {
+                        tosAccepted.toggle()
+                    } label: {
+                        Image(systemName: tosAccepted ? "checkmark.square.fill" : "square")
+                            .font(.system(size: 20))
+                            .foregroundStyle(tosAccepted ? Design.brandBlue : Color.secondary)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Terms of Service")
+                    .accessibilityHint("Toggles acceptance of the Terms of Service.")
+                    .accessibilityValue(tosAccepted ? "Checked" : "Unchecked")
+
+                    tosAgreementLabel
+                }
+                .padding(.top, 4)
+
+                submitButton
+
+                // MARK: Switch to Sign In
+                TextLinkButton(
+                    title: "Already have an account? Sign In",
+                    accentRange: "Sign In",
+                    fontSize: 15,
+                    action: switchToSignIn
+                )
+                .frame(height: 44)
+
+                // MARK: Divider
+                orDivider
+
+                // MARK: Social sign-in
+                googleButton
+                appleButton
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 24)
+        }
+        .scrollDismissesKeyboard(.immediately)
+        .background(Design.background.ignoresSafeArea())
+        .alert(isPresented: $isAlertPresented) {
+            Alert(
+                title: Text(alertTitle),
+                message: Text(alertMessage),
+                dismissButton: .default(Text("OK"))
+            )
+        }
+        .alert("Data Stored Locally", isPresented: $isLocalStorageAlertPresented) {
+            Button("Got it") {
+                onWatchOnboardingRequired()
+            }
+        } message: {
+            Text("Your AirWhisper data — phrases, contacts, settings, and history — will be saved on this device only. It will not be synced or backed up across other devices. To enable cross-device sync, sign in with Apple ID.")
+        }
+        .sheet(item: $legalSheetContent) { content in
+            NavigationStack {
+                ScrollView {
+                    Text(content.text)
+                        .font(.body)
+                        .foregroundStyle(.primary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding()
+                    }
+                .navigationTitle(content.title)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Done") { legalSheetContent = nil }
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - ToS agreement label (ported from LegalAgreementLabelController)
+
+    private var tosAgreementLabel: some View {
+        HStack(spacing: 0) {
+            Text("I agree to the ")
+            Button {
+                legalSheetContent = .termsOfService
+            } label: {
+                Text("Terms of Service")
+                    .underline()
+            }
+            Text(" and ")
+            Button {
+                legalSheetContent = .privacyPolicy
+            } label: {
+                Text("Privacy Policy")
+                    .underline()
+            }
+        }
+        .font(.system(size: 13))
+        .foregroundStyle(.secondary)
+        .tint(Design.link)
+        .buttonStyle(.plain)
+        .fixedSize(horizontal: false, vertical: true)
+        .accessibilityLabel("I agree to the Terms of Service and Privacy Policy")
+        .accessibilityHint("Activates the Terms of Service or Privacy Policy.")
+    }
+
+    // MARK: - Divider (storyboard: "OR" divider container)
+
+    private var orDivider: some View {
+        HStack(spacing: 12) {
+            Rectangle()
+                .fill(Color(uiColor: .separator))
+                .frame(height: 1)
+            Text("OR")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.secondary)
+            Rectangle()
+                .fill(Color(uiColor: .separator))
+                .frame(height: 1)
+        }
+        .frame(height: 20)
+    }
+
+    // MARK: - Submit button (ports UIButton+Loading showLoading/hideLoading)
+
+    private var submitButton: some View {
+        Button {
+            createAccountTapped()
+        } label: {
+            ZStack {
+                if isCreateSubmitting {
+                    ProgressView()
+                        .tint(.white)
+                } else {
+                    Text("Create Account")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 50)
+            .background(Design.brandBlue)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
+        .disabled(!tosAccepted || isCreateSubmitting)
+        .opacity(tosAccepted ? 1 : 0.45)
+        .accessibilityLabel("Create Account")
+    }
+
+    // MARK: - Social buttons (same visual language as SignInView)
+
+    private var googleButton: some View {
+        Button {
+            handleGoogleSignInTapped()
+        } label: {
+            HStack(spacing: 8) {
+                if let logo = Self.googleLogoImage {
+                    Image(uiImage: logo)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 18, height: 18)
+                }
+                Text("Continue with Google")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.black)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 48)
+            .background(Design.neutralButton)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
+        .disabled(isGoogleSubmitting)
+        .accessibilityLabel("Continue with Google")
+        .accessibilityHint("Signs in using your Google account.")
+    }
+
+    private var appleButton: some View {
+        Button {
+            handleAppleIDSignInTapped()
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "apple.logo")
+                    .font(.system(size: 16))
+                if isAppleSubmitting {
+                    ProgressView()
+                        .tint(.white)
+                } else {
+                    Text("Continue with Apple")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 48)
+            .background(.black)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
+        .disabled(isAppleSubmitting)
+        .accessibilityLabel("Continue with Apple")
+        .accessibilityHint("Signs in using your Apple ID.")
+    }
+
+    private static var googleLogoImage: UIImage? {
+        if let image = UIImage(named: "google_logo") { return image }
+        // GoogleSignIn framework bundle fallback
+        if let bundleURL = Bundle(for: GIDSignIn.self).url(forResource: "google_logo", withExtension: "png") {
+            return UIImage(contentsOfFile: bundleURL.path)
+        }
+        return nil
+    }
+
+    // MARK: - Alerts (ported showAlert)
+
+    private func showAlert(title: String, message: String) {
+        alertTitle = title
+        alertMessage = message
+        isAlertPresented = true
+    }
+
+    // MARK: - Actions (ported 1:1)
+
+    private func createAccountTapped() {
+        // 1. Name must not be empty
+        guard !name.isEmpty else {
+            showAlert(title: "Missing Name", message: "Please enter your full name.")
+            return
+        }
+        // 2. Name must not contain digits
+        guard name.rangeOfCharacter(from: .decimalDigits) == nil else {
+            showAlert(title: "Invalid Name", message: "Name cannot contain numbers.")
+            return
+        }
+        // 3. Email must be non-empty and contain "@"
+        guard !email.isEmpty, email.contains("@") else {
+            showAlert(title: "Invalid Email", message: "Please enter a valid email address.")
+            return
+        }
+        // 4. Password complexity
+        guard password.count >= 8,
+              password.rangeOfCharacter(from: .letters) != nil,
+              password.rangeOfCharacter(from: .decimalDigits) != nil,
+              password.rangeOfCharacter(from: .alphanumerics.inverted) != nil else {
+            showAlert(
+                title: "Weak Password",
+                message: "Password must be at least 8 characters and include a letter, a number, and a special character."
+            )
+            return
+        }
+        // 5. Terms of Service must be accepted
+        guard tosAccepted else {
+            showAlert(title: "Terms of Service", message: "Please accept the Terms of Service to continue.")
+            return
+        }
+
+        isCreateSubmitting = true
+        Task { [weak self] in
+            guard let self else { return }
+            defer { Task { @MainActor in self.isCreateSubmitting = false } }
+            do {
+                try await AuthService.register(name: name, email: email, password: password)
+                await MainActor.run { self.onRequestOTP(.emailVerification(email: email)) }
+            } catch AuthError.unverified(_) {
+                await MainActor.run { self.onRequestOTP(.emailVerification(email: email)) }
+            } catch {
+                await MainActor.run {
+                    self.showAlert(title: "Registration Failed", message: error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    private func handleGoogleSignInTapped() {
+        guard let presenting = topMostViewController() else {
+            showAlert(title: "Sign In Failed", message: "Unable to present Google sign-in.")
+            return
+        }
+
+        GIDSignIn.sharedInstance.signIn(withPresenting: presenting) { [weak self] result, error in
+            guard let self else { return }
+            if let error = error {
+                DispatchQueue.main.async {
+                    self.showAlert(title: "Sign In Failed", message: error.localizedDescription)
+                }
+                return
+            }
+            guard let user = result?.user,
+                  let idToken = user.idToken?.tokenString else {
+                DispatchQueue.main.async {
+                    self.showAlert(title: "Sign In Failed", message: "Unable to retrieve Google credentials.")
+                }
+                return
+            }
+            let googleEmail = user.profile?.email
+            let givenName = user.profile?.givenName ?? ""
+            let familyName = user.profile?.familyName ?? ""
+            var derivedName = "\(givenName) \(familyName)".trimmingCharacters(in: .whitespacesAndNewlines)
+            if derivedName.isEmpty {
+                derivedName = googleEmail?.components(separatedBy: "@").first?.capitalized ?? "Google User"
+            }
+
+            self.isGoogleSubmitting = true
+            Task { [weak self] in
+                guard let self else { return }
+                defer { Task { @MainActor in self.isGoogleSubmitting = false } }
+                do {
+                    let response = try await AuthService.googleSignIn(idToken: idToken)
+                    await MainActor.run {
+                        StorageManager.shared.saveSession(
+                            accessToken: response.accessToken,
+                            refreshToken: response.refreshToken
+                        )
+                        StorageManager.shared.setAppleIDSession(false)
+                        DataManager.shared.setupNewUser(
+                            name: response.user.name,
+                            email: response.user.email
+                        )
+                        self.isLocalStorageAlertPresented = true
+                    }
+                } catch {
+                    await MainActor.run {
+                        self.showAlert(title: "Sign In Failed", message: error.localizedDescription)
+                    }
+                }
+            }
+        }
+    }
+
+    private func handleAppleIDSignInTapped() {
+        isAppleSubmitting = true
+
+        let request = ASAuthorizationAppleIDProvider().createRequest()
+        request.requestedScopes = [.fullName, .email]
+
+        let controller = ASAuthorizationController(authorizationRequests: [request])
+        let handler = CreateAccountAppleSignInHandler()
+        controller.delegate = handler
+        controller.presentationContextProvider = handler
+        self.appleSignInHandler = handler // retain for the duration of the flow
+        currentController = controller
+
+        handler.onSuccess = { [weak self] identityToken, authorizationCode, fullName, appleUserIdentifier in
+            guard let self else { return }
+            Task { [weak self] in
+                guard let self else { return }
+                defer { Task { @MainActor in self.isAppleSubmitting = false } }
+                do {
+                    let response = try await AuthService.appleSignIn(
+                        identityToken: identityToken,
+                        authorizationCode: authorizationCode,
+                        fullName: fullName
+                    )
+                    await MainActor.run {
+                        StorageManager.shared.saveSession(
+                            accessToken: response.accessToken,
+                            refreshToken: response.refreshToken
+                        )
+                        StorageManager.shared.setAppleIDSession(true)
+                        DataManager.shared.setupNewUser(
+                            name: response.user.name,
+                            email: response.user.email,
+                            appleUserIdentifier: appleUserIdentifier
+                        )
+                        self.onWatchOnboardingRequired()
+                    }
+                } catch {
+                    await MainActor.run {
+                        self.showAlert(title: "Sign In Failed", message: error.localizedDescription)
+                    }
+                }
+            }
+        }
+        handler.onFailure = { [weak self] message in
+            Task { @MainActor in
+                self?.isAppleSubmitting = false
+                if let message {
+                    self?.showAlert(title: "Sign In Failed", message: message)
+                }
+            }
+        }
+
+        controller.performRequests()
+    }
+
+    // MARK: - Presentation helper (topmost view controller for GIDSignIn)
+
+    private func topMostViewController(
+        from base: UIViewController? = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first?
+            .windows
+            .first(where: { $0.isKeyWindow })?
+            .rootViewController
+    ) -> UIViewController? {
+        if let navigation = base as? UINavigationController {
+            return topMostViewController(from: navigation.visibleViewController)
+        }
+        if let tab = base as? UITabBarController {
+            return topMostViewController(from: tab.selectedViewController)
+        }
+        if let presented = base?.presentedViewController, presented is UIAlertController == false {
+            return topMostViewController(from: presented)
+        }
+        return base
+    }
+
+    // Retain the Apple sign-in flow objects for its lifetime.
+    @State private var appleSignInHandler: CreateAccountAppleSignInHandler?
+    @State private var currentController: ASAuthorizationController?
+}
+
+// MARK: - Apple sign-in coordinator (distinct name: no collision with the old UIKit file)
+
+private final class CreateAccountAppleSignInHandler: NSObject {
+    var onSuccess: ((String, String, String?, String) -> Void)?
+    var onFailure: ((String?) -> Void)?
+
+    private func formattedFullName(from components: PersonNameComponents?) -> String? {
+        guard let components else { return nil }
+        let name = PersonNameComponentsFormatter()
+            .string(from: components)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? nil : name
+    }
+}
+
+extension CreateAccountAppleSignInHandler: ASAuthorizationControllerDelegate {
+    func authorizationController(
+        controller: ASAuthorizationController,
+        didCompleteWithAuthorization authorization: ASAuthorization
+    ) {
+        guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+              let identityTokenData = credential.identityToken,
+              let identityToken = String(data: identityTokenData, encoding: .utf8),
+              let authorizationCodeData = credential.authorizationCode,
+              let authorizationCode = String(data: authorizationCodeData, encoding: .utf8) else {
+            onFailure?("Unable to retrieve Apple credentials.")
+            return
+        }
+        onSuccess?(identityToken, authorizationCode, formattedFullName(from: credential.fullName), credential.user)
+    }
+
+    func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
+        if let authError = error as? ASAuthorizationError, authError.code == .canceled {
+            onFailure?(nil)
+            return
+        }
+        onFailure?(error.localizedDescription)
+    }
+}
+
+extension CreateAccountAppleSignInHandler: ASAuthorizationControllerPresentationContextProviding {
+    func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first?
+            .windows
+            .first(where: { $0.isKeyWindow }) ?? UIWindow()
+    }
+}
