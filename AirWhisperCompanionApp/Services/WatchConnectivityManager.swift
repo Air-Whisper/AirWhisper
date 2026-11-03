@@ -1,7 +1,12 @@
 import Foundation
 import WatchConnectivity
+import Combine
 
-final class WatchConnectivityManager: NSObject  { // NSObject lets us use WCSessionDelegate which is an onjective c based protocol. This class is the central hub for all WatchConnectivity interactions on the iPhone side.
+final class WatchConnectivityManager: NSObject, ObservableObject  { // NSObject lets us use WCSessionDelegate which is an onjective c based protocol. This class is the central hub for all WatchConnectivity interactions on the iPhone side.
+
+    /// Bumped whenever connection status changes so SwiftUI views can observe
+    /// the same events the old "WatchConnectionStatusChanged" notification carried.
+    @Published private(set) var connectionRevision: Int = 0
 
     static let shared = WatchConnectivityManager()
 
@@ -170,6 +175,7 @@ extension WatchConnectivityManager: WCSessionDelegate {
 
         DispatchQueue.main.async {
             NotificationCenter.default.post(name: Notification.Name("WatchConnectionStatusChanged"), object: nil)
+            self.connectionRevision += 1
             self.flushPendingPayloads(via: session)
             self.syncAllDataToWatch()
             self.sendStoredJWTTokenIfAvailable()

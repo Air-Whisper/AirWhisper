@@ -1,6 +1,7 @@
 import Foundation
+import Combine
 
-final class DataManager {
+final class DataManager: ObservableObject {
     static let shared = DataManager()
     private let storage = StorageManager.shared
     private let watch = WatchConnectivityManager.shared
@@ -9,12 +10,13 @@ final class DataManager {
 
     private init() {}
 
-    private(set) var currentUser: User? // the current user profile, if any. readable globally but writable locally.
+    // Published mirrors expose the same caches to SwiftUI views.
+    @Published private(set) var currentUser: User? // the current user profile, if any. readable globally but writable locally.
 
-    private var myPeople: [MyPeople] = []
-    private var quickPhrases: [QuickPhrase] = []
-    private var watchSettings: WatchSettings?
-    private var messageHistory: [MessageHistory] = []
+    @Published private(set) var myPeople: [MyPeople] = []
+    @Published private(set) var quickPhrases: [QuickPhrase] = []
+    @Published private(set) var watchSettings: WatchSettings?
+    @Published private(set) var messageHistory: [MessageHistory] = []
     // cache the personalisation meta for the user to constantly hitting UserDefaults.
 
 
