@@ -3,7 +3,7 @@ import UIKit
 import AuthenticationServices
 import GoogleSignIn
 
-/// Sign In screen — faithful SwiftUI port of `SignInContentViewController`.
+/// Sign In screen with the original layout, strings, colors, and behavior.
 /// Layout, strings, colors, and behavior match the storyboard exactly.
 struct SignInView: View {
 
@@ -363,7 +363,7 @@ struct SignInView: View {
 // MARK: - Apple Sign-In Coordinator
 
 /// Dedicated coordinator for Apple Sign-In to avoid colliding with the
-/// existing `SignInContentViewController` delegate extensions.
+/// other sign-in delegates.
 final class SignInAppleSignInCoordinator: NSObject, ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
 
     static let shared = SignInAppleSignInCoordinator()

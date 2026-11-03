@@ -12,8 +12,7 @@ enum OtpFlowMode: Equatable, Identifiable {
     }
 }
 
-/// SwiftUI parity port of `OTPVerificationViewController`.
-/// Presents six digit fields, a verify button, and a resend button with 60 s countdown.
+/// Six digit verification with the original controls and 60 second resend countdown.
 struct OTPVerificationView: View {
 
     // MARK: - Input
@@ -227,7 +226,7 @@ struct OTPVerificationView: View {
 // MARK: - UIKit-backed OTP Field Stack
 
 /// `UIViewRepresentable` wrapping a `UIStackView` with six `UITextField`s.
-/// Replicates the exact behavior of the original `OTPVerificationViewController`:
+/// Preserves the original OTP input behavior:
 /// - Single-character limit per field
 /// - Auto-advance on entry, auto-submit on 6th digit
 /// - Backspace on empty field moves focus back and clears previous

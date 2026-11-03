@@ -3,10 +3,7 @@ import UIKit
 
 struct HistoryView: View {
     @EnvironmentObject private var dataManager: DataManager
-
-    private var sections: [HistorySection] {
-        dataManager.getGroupedHistory()
-    }
+    @State private var sections: [HistorySection] = []
 
     private var coachSteps: [CoachMarkStep] {
         if sections.isEmpty {
@@ -104,5 +101,10 @@ struct HistoryView: View {
         .navigationTitle("History")
         .navigationBarTitleDisplayMode(.inline)
         .coachMarkTour(screenKey: "history", steps: coachSteps)
+        .onAppear(perform: loadHistoryData)
+    }
+
+    private func loadHistoryData() {
+        sections = dataManager.getGroupedHistory()
     }
 }

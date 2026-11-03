@@ -2,8 +2,7 @@ import SwiftUI
 import UIKit
 import AVFoundation
 
-/// Onboarding carousel — port of `OnboardingViewController` +
-/// `OnboardingCollectionViewCell`:
+/// Four-page onboarding carousel:
 /// - 4 pages from `OnboardingItem.items`
 /// - swipe left/right to move between pages (guarded while transitioning)
 /// - page indicator + Skip button (title becomes "Next" on the last page)

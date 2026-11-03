@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-/// Visual toast component matching `MainAuthViewController.showToast` exactly.
+/// Visual toast component matching the auth flow's original presentation.
 ///
 /// - Dark background: RGB(0.1, 0.1, 0.1) alpha 0.85
 /// - White text, system font 14pt semibold, Dynamic Type scaled

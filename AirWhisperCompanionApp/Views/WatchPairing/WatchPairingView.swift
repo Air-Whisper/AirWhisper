@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 import WatchConnectivity
 
-/// Watch pairing screen — full port of `WatchOnBoardingViewController`.
+/// Watch pairing screen.
 ///
 /// Used in two places:
 /// - post-authentication sheet (Presented after sign-in)

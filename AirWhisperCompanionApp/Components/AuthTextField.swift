@@ -3,7 +3,7 @@ import UIKit
 
 /// Standard authentication text field.
 ///
-/// Visual port of `UITextField+Style.applyStandardAuthStyle()`:
+/// Shared text field styling for the authentication screens:
 /// - 12pt corner radius, 1pt border in systemGray4, 16pt left/right padding
 /// - Focus state: systemBlue border + 2pt width
 /// - Optional password visibility toggle (eye / eye.slash)

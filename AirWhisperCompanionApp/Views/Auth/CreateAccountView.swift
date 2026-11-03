@@ -3,7 +3,7 @@ import UIKit
 import AuthenticationServices
 import GoogleSignIn
 
-/// Create Account screen — 1:1 port of `CreateAccountContentViewController`.
+/// Create Account screen with the legacy validation and sign-in options.
 ///
 /// Parity notes (from the original):
 /// - No logo and no big title on this screen (storyboard scene has fields only).
@@ -124,6 +124,7 @@ struct CreateAccountView: View {
             } label: {
                 Text("Terms of Service")
                     .underline()
+                    .foregroundStyle(Design.link)
             }
             Text(" and ")
             Button {
@@ -131,15 +132,24 @@ struct CreateAccountView: View {
             } label: {
                 Text("Privacy Policy")
                     .underline()
+                    .foregroundStyle(Design.link)
             }
         }
-        .font(.system(size: 13))
+        .font(.footnote)
         .foregroundStyle(.secondary)
         .tint(Design.link)
         .buttonStyle(.plain)
         .fixedSize(horizontal: false, vertical: true)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isLink)
         .accessibilityLabel("I agree to the Terms of Service and Privacy Policy")
         .accessibilityHint("Activates the Terms of Service or Privacy Policy.")
+        .accessibilityAction(named: Text("View Terms of Service")) {
+            legalDocument = LegalDocument.load(.termsOfService)
+        }
+        .accessibilityAction(named: Text("View Privacy Policy")) {
+            legalDocument = LegalDocument.load(.privacyPolicy)
+        }
     }
 
     // MARK: - Divider (storyboard: "OR" divider container)
@@ -159,7 +169,7 @@ struct CreateAccountView: View {
         .frame(height: 20)
     }
 
-    // MARK: - Submit button (ports UIButton+Loading showLoading/hideLoading)
+    // MARK: - Submit button loading state
 
     private var submitButton: some View {
         Button {

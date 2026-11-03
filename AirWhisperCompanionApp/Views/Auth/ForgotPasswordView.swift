@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Forgot Password flow entry screen.
-/// Port of `ForgotPasswordViewController` — exact visual and behavioral parity.
+/// Forgot Password screen with the original email validation and copy.
 struct ForgotPasswordView: View {
 
     let onPasswordResetCompleted: () -> Void

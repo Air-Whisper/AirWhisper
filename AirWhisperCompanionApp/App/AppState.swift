@@ -9,7 +9,7 @@ import GoogleSignIn
 ///
 /// Ports the root view-controller swapping previously done in `SceneDelegate`
 /// (launch routing, sign-out routing, revoked-Apple-credential routing) and in
-/// `WatchOnBoardingViewController` (post-onboarding routing).
+/// the watch-pairing flow (post-onboarding routing).
 enum AppRoute: Equatable {
     case onboarding
     case auth
@@ -141,7 +141,7 @@ final class AppState: NSObject, ObservableObject {
 
     // MARK: - Transitions
 
-    /// Ported from WatchOnBoardingViewController.routeToMainApp().
+    /// Completes watch onboarding and routes to the main app.
     func completeWatchOnboarding() {
         guard DataManager.shared.currentUser != nil, StorageManager.shared.hasValidSession() else {
             StorageManager.shared.clearSession()
@@ -160,7 +160,7 @@ final class AppState: NSObject, ObservableObject {
         WatchConnectivityManager.shared.sendStoredJWTTokenIfAvailable()
     }
 
-    /// Ported from UserProfileViewController.performSignOut().
+    /// Signs out and returns to onboarding.
     func signOut() {
         GIDSignIn.sharedInstance.signOut()
         if let appleId = DataManager.shared.currentUser?.appleUserIdentifier {

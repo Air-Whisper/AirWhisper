@@ -48,9 +48,9 @@ struct CoachMarkTourOverlay: View {
         guard let step = manager.activeStep else { return 0 }
         switch step.position {
         case .below:
-            spotlight.maxY + arrowSize + 8 + tooltipHeight / 2
+            return spotlight.maxY + arrowSize + 8 + tooltipHeight / 2
         case .above:
-            spotlight.minY - arrowSize - 8 - tooltipHeight / 2
+            return spotlight.minY - arrowSize - 8 - tooltipHeight / 2
         }
     }
 

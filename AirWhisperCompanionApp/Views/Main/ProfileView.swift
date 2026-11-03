@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-/// Profile actions and account details ported from `UserProfileViewController`.
+/// Profile actions and account details.
 struct ProfileView: View {
 
     @EnvironmentObject private var dataManager: DataManager
@@ -10,22 +10,9 @@ struct ProfileView: View {
     @State private var activeAlert: ProfileAlert?
     @State private var isRequestingDeletion = false
     @State private var isDeleteOTPPresented = false
-
-    private var profileName: String {
-        dataManager.currentUser?.name ?? "-"
-    }
-
-    private var profileEmailTitle: String {
-        guard let user = dataManager.currentUser else { return "Email" }
-        guard let email = user.email, !email.isEmpty else { return "Contact" }
-        return "Email"
-    }
-
-    private var profileEmailValue: String {
-        guard let user = dataManager.currentUser else { return "Not logged in" }
-        guard let email = user.email, !email.isEmpty else { return "Not provided" }
-        return email
-    }
+    @State private var profileName = "-"
+    @State private var profileEmailTitle = "Email"
+    @State private var profileEmailValue = "Not logged in"
 
     var body: some View {
         ScrollView {
@@ -141,6 +128,25 @@ struct ProfileView: View {
             DeleteAccountOTPView(email: dataManager.currentUser?.email ?? "")
                 .environmentObject(dataManager)
                 .environmentObject(appState)
+        }
+        .onAppear(perform: loadUserData)
+    }
+
+    private func loadUserData() {
+        guard let user = dataManager.currentUser else {
+            profileEmailTitle = "Email"
+            profileEmailValue = "Not logged in"
+            profileName = "-"
+            return
+        }
+
+        profileName = user.name
+        if let email = user.email, !email.isEmpty {
+            profileEmailTitle = "Email"
+            profileEmailValue = email
+        } else {
+            profileEmailTitle = "Contact"
+            profileEmailValue = "Not provided"
         }
     }
 

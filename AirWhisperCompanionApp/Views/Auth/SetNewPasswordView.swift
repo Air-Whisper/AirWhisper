@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Set new password screen for password reset flow.
-/// Port of `SetNewPasswordViewController` — exact visual and behavioral parity.
+/// Password reset form with the original validation and copy.
 struct SetNewPasswordView: View {
 
     let resetToken: String

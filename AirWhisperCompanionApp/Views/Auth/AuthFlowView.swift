@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-/// Auth flow container: replaces `MainAuthViewController`.
+/// Auth flow container for account creation and sign in.
 /// Shows either Create Account or Sign In screen and manages modal presentations.
 struct AuthFlowView: View {
 
@@ -77,13 +77,13 @@ struct AuthFlowView: View {
         .animation(.easeInOut(duration: 0.3), value: toastMessage)
     }
 
-    // MARK: - Navigation helpers (ported from MainAuthViewController)
+    // MARK: - Navigation helpers
 
     private func navigateToWatchOnboarding() {
         appState.route = .watchPairing
     }
 
-    /// Port of `MainAuthViewController.showToast(message:duration:)`.
+    /// Shows the auth flow's bottom-anchored toast.
     /// Visual fidelity: dark rounded label, centered, bottom-anchored to safe area −24pt,
     /// horizontal insets 32pt, fade-in 0.3s, hold `duration`, fade-out 0.4s.
     private func showToast(_ message: String, duration: TimeInterval = 3.0) {

@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 /// OTP verification screen for password reset.
-/// Port of `ForgotPasswordOTPViewController` — exact visual and behavioral parity.
+/// Password-reset OTP screen with the original copy and resend behavior.
 struct ForgotPasswordOTPView: View {
 
     let email: String
