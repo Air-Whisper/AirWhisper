@@ -210,13 +210,8 @@ struct OTPVerificationView: View {
     private func startResendTimer() {
         resendCountdown = 60
         resendTimer?.invalidate()
-        resendTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] timer in
-            // We capture self weakly; the view may have disappeared.
+        resendTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [self] timer in
             Task { @MainActor in
-                guard let self = self else {
-                    timer.invalidate()
-                    return
-                }
                 self.resendCountdown -= 1
                 if self.resendCountdown <= 0 {
                     timer.invalidate()

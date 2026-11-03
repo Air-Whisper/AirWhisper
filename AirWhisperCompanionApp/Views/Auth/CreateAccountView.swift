@@ -341,8 +341,7 @@ struct CreateAccountView: View {
         }
 
         isCreateSubmitting = true
-        Task { [weak self] in
-            guard let self else { return }
+        Task { [self] in
             defer { Task { @MainActor in self.isCreateSubmitting = false } }
             do {
                 try await AuthService.register(name: name, email: email, password: password)
@@ -363,8 +362,7 @@ struct CreateAccountView: View {
             return
         }
 
-        GIDSignIn.sharedInstance.signIn(withPresenting: presenting) { [weak self] result, error in
-            guard let self else { return }
+        GIDSignIn.sharedInstance.signIn(withPresenting: presenting) { [self] result, error in
             if let error = error {
                 DispatchQueue.main.async {
                     self.showAlert(title: "Sign In Failed", message: error.localizedDescription)
@@ -387,8 +385,7 @@ struct CreateAccountView: View {
             }
 
             self.isGoogleSubmitting = true
-            Task { [weak self] in
-                guard let self else { return }
+            Task { [self] in
                 defer { Task { @MainActor in self.isGoogleSubmitting = false } }
                 do {
                     let response = try await AuthService.googleSignIn(idToken: idToken)
@@ -426,10 +423,8 @@ struct CreateAccountView: View {
         self.appleSignInHandler = handler // retain for the duration of the flow
         currentController = controller
 
-        handler.onSuccess = { [weak self] identityToken, authorizationCode, fullName, appleUserIdentifier in
-            guard let self else { return }
-            Task { [weak self] in
-                guard let self else { return }
+        handler.onSuccess = { [self] identityToken, authorizationCode, fullName, appleUserIdentifier in
+            Task { [self] in
                 defer { Task { @MainActor in self.isAppleSubmitting = false } }
                 do {
                     let response = try await AuthService.appleSignIn(
@@ -457,11 +452,11 @@ struct CreateAccountView: View {
                 }
             }
         }
-        handler.onFailure = { [weak self] message in
+        handler.onFailure = { [self] message in
             Task { @MainActor in
-                self?.isAppleSubmitting = false
+                self.isAppleSubmitting = false
                 if let message {
-                    self?.showAlert(title: "Sign In Failed", message: message)
+                    self.showAlert(title: "Sign In Failed", message: message)
                 }
             }
         }
@@ -521,18 +516,31 @@ extension CreateAccountAppleSignInHandler: ASAuthorizationControllerDelegate {
               let identityToken = String(data: identityTokenData, encoding: .utf8),
               let authorizationCodeData = credential.authorizationCode,
               let authorizationCode = String(data: authorizationCodeData, encoding: .utf8) else {
-            onFailure?("Unable to retrieve Apple credentials.")
+            finishWithFailure("Unable to retrieve Apple credentials.")
             return
         }
-        onSuccess?(identityToken, authorizationCode, formattedFullName(from: credential.fullName), credential.user)
+        let callback = onSuccess
+        onSuccess = nil
+        onFailure = nil
+        callback?(identityToken, authorizationCode, formattedFullName(from: credential.fullName), credential.user)
     }
 
     func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
+        let callback = onFailure
+        onSuccess = nil
+        onFailure = nil
         if let authError = error as? ASAuthorizationError, authError.code == .canceled {
-            onFailure?(nil)
+            callback?(nil)
             return
         }
-        onFailure?(error.localizedDescription)
+        callback?(error.localizedDescription)
+    }
+
+    private func finishWithFailure(_ message: String?) {
+        let callback = onFailure
+        onSuccess = nil
+        onFailure = nil
+        callback?(message)
     }
 }
 

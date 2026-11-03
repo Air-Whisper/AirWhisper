@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import AVFoundation
 
 /// Onboarding carousel — port of `OnboardingViewController` +
 /// `OnboardingCollectionViewCell`:

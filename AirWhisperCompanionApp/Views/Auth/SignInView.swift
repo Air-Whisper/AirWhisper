@@ -328,8 +328,7 @@ struct SignInView: View {
         controller.delegate = SignInAppleSignInCoordinator.shared
         controller.presentationContextProvider = SignInAppleSignInCoordinator.shared
         SignInAppleSignInCoordinator.shared.beginSignIn(
-            onSuccess: { [weak self] identityToken, authorizationCode, fullName, appleUserIdentifier in
-                guard let self = self else { return }
+            onSuccess: { [self] identityToken, authorizationCode, fullName, appleUserIdentifier in
                 Task {
                     do {
                         let response = try await AuthService.appleSignIn(
@@ -359,8 +358,7 @@ struct SignInView: View {
                     }
                 }
             },
-            onFailure: { [weak self] error in
-                guard let self = self else { return }
+            onFailure: { [self] error in
                 DispatchQueue.main.async {
                     self.isAppleLoading = false
                     if let authError = error as? ASAuthorizationError, authError.code == .canceled {
@@ -406,28 +404,38 @@ final class SignInAppleSignInCoordinator: NSObject, ASAuthorizationControllerDel
         didCompleteWithAuthorization authorization: ASAuthorization
     ) {
         guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential else {
-            onFailure?(NSError(domain: "AppleSignIn", code: -1, userInfo: [NSLocalizedDescriptionKey: "Unable to retrieve Apple credentials."]))
+            finishWithFailure(NSError(domain: "AppleSignIn", code: -1, userInfo: [NSLocalizedDescriptionKey: "Unable to retrieve Apple credentials."]))
             return
         }
         guard let identityTokenData = credential.identityToken,
               let identityToken = String(data: identityTokenData, encoding: .utf8),
               let authorizationCodeData = credential.authorizationCode,
               let authorizationCode = String(data: authorizationCodeData, encoding: .utf8) else {
-            onFailure?(NSError(domain: "AppleSignIn", code: -1, userInfo: [NSLocalizedDescriptionKey: "Unable to retrieve Apple credentials."]))
+            finishWithFailure(NSError(domain: "AppleSignIn", code: -1, userInfo: [NSLocalizedDescriptionKey: "Unable to retrieve Apple credentials."]))
             return
         }
 
         let fullName = formattedFullName(from: credential.fullName)
         let appleUserIdentifier = credential.user
 
-        onSuccess?(identityToken, authorizationCode, fullName, appleUserIdentifier)
+        let callback = onSuccess
+        onSuccess = nil
+        onFailure = nil
+        callback?(identityToken, authorizationCode, fullName, appleUserIdentifier)
     }
 
     func authorizationController(
         controller: ASAuthorizationController,
         didCompleteWithError error: Error
     ) {
-        onFailure?(error)
+        finishWithFailure(error)
+    }
+
+    private func finishWithFailure(_ error: Error) {
+        let callback = onFailure
+        onSuccess = nil
+        onFailure = nil
+        callback?(error)
     }
 
     func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
