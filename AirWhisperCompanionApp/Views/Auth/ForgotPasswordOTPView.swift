@@ -95,7 +95,8 @@ struct ForgotPasswordOTPView: View {
         }
         .onAppear {
             // Focus first field on appear
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(0.3))
                 focusedIndex = 0
             }
         }

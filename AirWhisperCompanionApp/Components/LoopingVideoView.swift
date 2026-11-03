@@ -12,6 +12,7 @@ struct LoopingVideoView: UIViewRepresentable {
 
     let resourceName: String
     var videoGravity: AVLayerVideoGravity = .resizeAspect
+    var isPlaying = true
 
     func makeUIView(context: Context) -> PlayerContainerView {
         PlayerContainerView()
@@ -22,9 +23,10 @@ struct LoopingVideoView: UIViewRepresentable {
         if uiView.currentResource != resourceName {
             uiView.configure(resourceName: resourceName, gravity: videoGravity)
         }
+        uiView.setPlaying(isPlaying)
     }
 
-    func dismantleUIView(_ uiView: PlayerContainerView, coordinator: ()) {
+    static func dismantleUIView(_ uiView: PlayerContainerView, coordinator: ()) {
         uiView.stop()
     }
 }
@@ -69,6 +71,14 @@ final class PlayerContainerView: UIView {
         playerLayer = layer
 
         queuePlayer.play()
+    }
+
+    func setPlaying(_ isPlaying: Bool) {
+        guard isPlaying else {
+            player?.pause()
+            return
+        }
+        player?.play()
     }
 
     func stop() {

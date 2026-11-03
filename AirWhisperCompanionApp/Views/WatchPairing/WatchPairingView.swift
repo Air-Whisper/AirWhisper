@@ -149,7 +149,7 @@ struct WatchPairingView: View {
             if UIApplication.shared.canOpenURL(url) {
                 UIApplication.shared.open(url, options: [:]) { didOpen in
                     if !didOpen {
-                        DispatchQueue.main.async {
+                                        Task { @MainActor in
                             showsSettingsUnavailableAlert = true
                         }
                     }

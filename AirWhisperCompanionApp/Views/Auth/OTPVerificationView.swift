@@ -300,8 +300,10 @@ struct OTPFieldStack: UIViewRepresentable {
         }
 
         // Focus first field on appear
-        DispatchQueue.main.async {
-            context.coordinator.textFields.first?.becomeFirstResponder()
+        let coordinator = context.coordinator
+        Task { @MainActor [weak coordinator] in
+            await Task.yield()
+            coordinator?.textFields.first?.becomeFirstResponder()
         }
 
         return stack

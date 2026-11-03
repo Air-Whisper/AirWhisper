@@ -1,17 +1,83 @@
 import SwiftUI
 
-/// Main app tab container — PLACEHOLDER for Phase 3 (Home, Quick Speak,
-/// Contacts, History, Profile land here).
+private enum MainTab: Hashable {
+    case home
+    case people
+}
+
 struct MainTabView: View {
+    @EnvironmentObject private var appState: AppState
+    @StateObject private var dataManager = DataManager.shared
+    @StateObject private var coachMarkManager = SwiftUICoachMarkManager()
+
+    @State private var selectedTab: MainTab = .home
+    @State private var homePath: [MainNavigationDestination] = []
+    @State private var peoplePath: [MainNavigationDestination] = []
+
     var body: some View {
-        VStack(spacing: 12) {
-            Text("AirWhisper")
-                .font(.title2)
-                .bold()
-            Text("Main tabs — arriving in Phase 3.")
-                .foregroundStyle(.secondary)
+        GeometryReader { geometry in
+            ZStack {
+                TabView(selection: $selectedTab) {
+                    NavigationStack(path: $homePath) {
+                        HomeView()
+                            .navigationDestination(for: MainNavigationDestination.self) { destination in
+                                destinationView(destination)
+                            }
+                    }
+                    .tabItem {
+                        Label("Home", systemImage: "house.fill")
+                    }
+                    .tag(MainTab.home)
+
+                    NavigationStack(path: $peoplePath) {
+                        ContactsView()
+                            .navigationDestination(for: MainNavigationDestination.self) { destination in
+                                destinationView(destination)
+                            }
+                    }
+                    .tabItem {
+                        Label("My People", systemImage: "person.2.fill")
+                    }
+                    .tag(MainTab.people)
+                }
+
+                if let activeStep = coachMarkManager.activeStep,
+                   let targetFrame = coachMarkManager.targetFrames[activeStep.target] {
+                    CoachMarkTourOverlay(
+                        manager: coachMarkManager,
+                        targetFrame: targetFrame,
+                        safeAreaInsets: geometry.safeAreaInsets
+                    )
+                }
+            }
+            .coordinateSpace(name: CoachMarkCoordinateSpace.name)
+            .onPreferenceChange(CoachMarkFramesPreferenceKey.self) { frames in
+                coachMarkManager.updateTargetFrames(frames)
+            }
+            .animation(.easeInOut(duration: 0.3), value: coachMarkManager.activeScreenKey)
+            .environmentObject(dataManager)
+            .environmentObject(appState)
+            .environmentObject(coachMarkManager)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Design.background)
+    }
+
+    @ViewBuilder
+    private func destinationView(_ destination: MainNavigationDestination) -> some View {
+        switch destination {
+        case .manageQuickSpeak:
+            ManageQuickSpeakView()
+        case .history:
+            HistoryView()
+        case .profile:
+            ProfileView()
+        case .airWriteHowTo:
+            AirWriteHowToView()
+        case .orientWriteHowTo:
+            OrientWriteHowToView()
+        case .quickPhrasesHowTo:
+            QuickPhrasesHowToView()
+        case .surfaceTapHowTo:
+            SurfaceTapHowToView()
+        }
     }
 }

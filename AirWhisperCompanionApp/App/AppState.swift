@@ -91,7 +91,7 @@ final class AppState: NSObject, ObservableObject {
     }
 
     @objc private func handleWatchConnectionNotification() {
-        DispatchQueue.main.async { [weak self] in
+        Task { @MainActor [weak self] in
             self?.updateWatchBlockerState()
         }
     }
@@ -129,7 +129,7 @@ final class AppState: NSObject, ObservableObject {
 
         ASAuthorizationAppleIDProvider().getCredentialState(forUserID: appleUserId) { state, _ in
             if state == .revoked {
-                DispatchQueue.main.async { [weak self] in
+                Task { @MainActor [weak self] in
                     DataManager.shared.clearCurrentUser()
                     StorageManager.shared.clearSession()
                     UserDefaults.standard.set(false, forKey: "hasSeenOnboarding")

@@ -239,32 +239,24 @@ struct SignInView: View {
         }
 
         isEmailSignInLoading = true
-        Task {
-            defer {
-                DispatchQueue.main.async { isEmailSignInLoading = false }
-            }
+        Task { @MainActor in
+            defer { isEmailSignInLoading = false }
             do {
                 let response = try await AuthService.login(email: email, password: password)
-                await MainActor.run {
-                    StorageManager.shared.saveSession(
-                        accessToken: response.accessToken,
-                        refreshToken: response.refreshToken
-                    )
-                    StorageManager.shared.setAppleIDSession(false)
-                    DataManager.shared.setupNewUser(
-                        name: response.user.name,
-                        email: response.user.email
-                    )
-                    showLocalStorageAlert = true
-                }
+                StorageManager.shared.saveSession(
+                    accessToken: response.accessToken,
+                    refreshToken: response.refreshToken
+                )
+                StorageManager.shared.setAppleIDSession(false)
+                DataManager.shared.setupNewUser(
+                    name: response.user.name,
+                    email: response.user.email
+                )
+                showLocalStorageAlert = true
             } catch AuthError.unverified(let message) {
-                await MainActor.run {
-                    presentAlert(title: "Account Unverified", message: message)
-                }
+                presentAlert(title: "Account Unverified", message: message)
             } catch {
-                await MainActor.run {
-                    presentAlert(title: "Sign In Failed", message: error.localizedDescription)
-                }
+                presentAlert(title: "Sign In Failed", message: error.localizedDescription)
             }
         }
     }
@@ -276,10 +268,8 @@ struct SignInView: View {
         }
 
         isGoogleLoading = true
-        GIDSignIn.sharedInstance.signIn(withPresenting: presentingVC) { [weakSelf = self] result, error in
-            // Note: weakSelf pattern needed because we're in a closure capturing self
-            // We'll handle the result on the main thread
-            DispatchQueue.main.async { [self] in
+        GIDSignIn.sharedInstance.signIn(withPresenting: presentingVC) { [self] result, error in
+            Task { @MainActor [self] in
                 self.isGoogleLoading = false
 
                 if let error = error {
@@ -293,26 +283,22 @@ struct SignInView: View {
                 }
 
                 self.isGoogleLoading = true
-                Task {
-                    defer { DispatchQueue.main.async { self.isGoogleLoading = false } }
+                Task { @MainActor [self] in
+                    defer { self.isGoogleLoading = false }
                     do {
                         let response = try await AuthService.googleSignIn(idToken: idToken)
-                        await MainActor.run {
-                            StorageManager.shared.saveSession(
-                                accessToken: response.accessToken,
-                                refreshToken: response.refreshToken
-                            )
-                            StorageManager.shared.setAppleIDSession(false)
-                            DataManager.shared.setupNewUser(
-                                name: response.user.name,
-                                email: response.user.email
-                            )
-                            self.showLocalStorageAlert = true
-                        }
+                        StorageManager.shared.saveSession(
+                            accessToken: response.accessToken,
+                            refreshToken: response.refreshToken
+                        )
+                        StorageManager.shared.setAppleIDSession(false)
+                        DataManager.shared.setupNewUser(
+                            name: response.user.name,
+                            email: response.user.email
+                        )
+                        self.showLocalStorageAlert = true
                     } catch {
-                        await MainActor.run {
-                            self.presentAlert(title: "Sign In Failed", message: error.localizedDescription)
-                        }
+                        self.presentAlert(title: "Sign In Failed", message: error.localizedDescription)
                     }
                 }
             }
@@ -329,37 +315,33 @@ struct SignInView: View {
         controller.presentationContextProvider = SignInAppleSignInCoordinator.shared
         SignInAppleSignInCoordinator.shared.beginSignIn(
             onSuccess: { [self] identityToken, authorizationCode, fullName, appleUserIdentifier in
-                Task {
+                Task { @MainActor [self] in
                     do {
                         let response = try await AuthService.appleSignIn(
                             identityToken: identityToken,
                             authorizationCode: authorizationCode,
                             fullName: fullName
                         )
-                        await MainActor.run {
-                            StorageManager.shared.saveSession(
-                                accessToken: response.accessToken,
-                                refreshToken: response.refreshToken
-                            )
-                            StorageManager.shared.setAppleIDSession(true)
-                            DataManager.shared.setupNewUser(
-                                name: response.user.name,
-                                email: response.user.email,
-                                appleUserIdentifier: appleUserIdentifier
-                            )
-                            self.isAppleLoading = false
-                            self.onWatchOnboardingRequired()
-                        }
+                        StorageManager.shared.saveSession(
+                            accessToken: response.accessToken,
+                            refreshToken: response.refreshToken
+                        )
+                        StorageManager.shared.setAppleIDSession(true)
+                        DataManager.shared.setupNewUser(
+                            name: response.user.name,
+                            email: response.user.email,
+                            appleUserIdentifier: appleUserIdentifier
+                        )
+                        self.isAppleLoading = false
+                        self.onWatchOnboardingRequired()
                     } catch {
-                        await MainActor.run {
-                            self.isAppleLoading = false
-                            self.presentAlert(title: "Sign In Failed", message: error.localizedDescription)
-                        }
+                        self.isAppleLoading = false
+                        self.presentAlert(title: "Sign In Failed", message: error.localizedDescription)
                     }
                 }
             },
             onFailure: { [self] error in
-                DispatchQueue.main.async {
+                Task { @MainActor [self] in
                     self.isAppleLoading = false
                     if let authError = error as? ASAuthorizationError, authError.code == .canceled {
                         return

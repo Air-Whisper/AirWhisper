@@ -34,41 +34,7 @@ struct CreateAccountView: View {
     @State private var isLocalStorageAlertPresented = false
 
     // MARK: - Legal document sheet state
-    private enum LegalSheetContent: Identifiable {
-        case termsOfService
-        case privacyPolicy
-
-        var id: Int {
-            switch self {
-            case .termsOfService: return 1
-            case .privacyPolicy: return 2
-            }
-        }
-
-        var title: String {
-            switch self {
-            case .termsOfService: return "Terms of Service"
-            case .privacyPolicy: return "Privacy Policy"
-        }
-        }
-
-        var resourceName: String {
-            switch self {
-            case .termsOfService: return "TERMS_OF_SERVICE"
-            case .privacyPolicy: return "PRIVACY_POLICY"
-            }
-        }
-
-        var text: String {
-            // Ports LegalDocumentViewController.bundledURL(for:) loading.
-            if let url = Bundle.main.url(forResource: resourceName, withExtension: "md"),
-               let contents = try? String(contentsOf: url, encoding: .utf8) {
-                return contents
-            }
-            return "Unable to load this document. Please try again later."
-        }
-    }
-    @State private var legalSheetContent: LegalSheetContent?
+    @State private var legalDocument: LegalDocument?
 
     var body: some View {
         ScrollView {
@@ -141,22 +107,9 @@ struct CreateAccountView: View {
         } message: {
             Text("Your AirWhisper data — phrases, contacts, settings, and history — will be saved on this device only. It will not be synced or backed up across other devices. To enable cross-device sync, sign in with Apple ID.")
         }
-        .sheet(item: $legalSheetContent) { content in
-            NavigationStack {
-                ScrollView {
-                    Text(content.text)
-                        .font(.body)
-                        .foregroundStyle(.primary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding()
-                    }
-                .navigationTitle(content.title)
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("Done") { legalSheetContent = nil }
-                    }
-                }
+        .sheet(item: $legalDocument) { document in
+            LegalDocumentView(document: document) {
+                legalDocument = nil
             }
         }
     }
@@ -167,14 +120,14 @@ struct CreateAccountView: View {
         HStack(spacing: 0) {
             Text("I agree to the ")
             Button {
-                legalSheetContent = .termsOfService
+                legalDocument = LegalDocument.load(.termsOfService)
             } label: {
                 Text("Terms of Service")
                     .underline()
             }
             Text(" and ")
             Button {
-                legalSheetContent = .privacyPolicy
+                legalDocument = LegalDocument.load(.privacyPolicy)
             } label: {
                 Text("Privacy Policy")
                     .underline()
@@ -363,33 +316,30 @@ struct CreateAccountView: View {
         }
 
         GIDSignIn.sharedInstance.signIn(withPresenting: presenting) { [self] result, error in
-            if let error = error {
-                DispatchQueue.main.async {
+            Task { @MainActor [self] in
+                if let error {
                     self.showAlert(title: "Sign In Failed", message: error.localizedDescription)
+                    return
                 }
-                return
-            }
-            guard let user = result?.user,
-                  let idToken = user.idToken?.tokenString else {
-                DispatchQueue.main.async {
-                    self.showAlert(title: "Sign In Failed", message: "Unable to retrieve Google credentials.")
-                }
-                return
-            }
-            let googleEmail = user.profile?.email
-            let givenName = user.profile?.givenName ?? ""
-            let familyName = user.profile?.familyName ?? ""
-            var derivedName = "\(givenName) \(familyName)".trimmingCharacters(in: .whitespacesAndNewlines)
-            if derivedName.isEmpty {
-                derivedName = googleEmail?.components(separatedBy: "@").first?.capitalized ?? "Google User"
-            }
 
-            self.isGoogleSubmitting = true
-            Task { [self] in
-                defer { Task { @MainActor in self.isGoogleSubmitting = false } }
-                do {
-                    let response = try await AuthService.googleSignIn(idToken: idToken)
-                    await MainActor.run {
+                guard let user = result?.user,
+                      let idToken = user.idToken?.tokenString else {
+                    self.showAlert(title: "Sign In Failed", message: "Unable to retrieve Google credentials.")
+                    return
+                }
+                let googleEmail = user.profile?.email
+                let givenName = user.profile?.givenName ?? ""
+                let familyName = user.profile?.familyName ?? ""
+                var derivedName = "\(givenName) \(familyName)".trimmingCharacters(in: .whitespacesAndNewlines)
+                if derivedName.isEmpty {
+                    derivedName = googleEmail?.components(separatedBy: "@").first?.capitalized ?? "Google User"
+                }
+
+                self.isGoogleSubmitting = true
+                Task { @MainActor [self] in
+                    defer { self.isGoogleSubmitting = false }
+                    do {
+                        let response = try await AuthService.googleSignIn(idToken: idToken)
                         StorageManager.shared.saveSession(
                             accessToken: response.accessToken,
                             refreshToken: response.refreshToken
@@ -400,9 +350,7 @@ struct CreateAccountView: View {
                             email: response.user.email
                         )
                         self.isLocalStorageAlertPresented = true
-                    }
-                } catch {
-                    await MainActor.run {
+                    } catch {
                         self.showAlert(title: "Sign In Failed", message: error.localizedDescription)
                     }
                 }
