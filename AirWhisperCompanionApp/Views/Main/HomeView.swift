@@ -187,11 +187,6 @@ struct HomeView: View {
             Text("Quick Speak Phrases")
                 .font(.system(size: 20, weight: .bold))
 
-            Text("Input and save commonly used words, phrases, or sentences for instant access with gestures.")
-                .font(.system(size: 13))
-                .foregroundStyle(Design.secondaryLabel)
-                .fixedSize(horizontal: false, vertical: true)
-
             NavigationLink(value: MainNavigationDestination.manageQuickSpeak) {
                 HStack {
                     Text("Add new phrase")
@@ -212,6 +207,11 @@ struct HomeView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12))
             }
             .buttonStyle(.plain)
+
+            Text("Input and save commonly used words, phrases, or sentences for instant access with gestures.")
+                .font(.system(size: 13))
+                .foregroundStyle(Design.secondaryLabel)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
