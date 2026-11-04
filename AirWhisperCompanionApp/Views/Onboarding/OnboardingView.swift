@@ -13,6 +13,7 @@ struct OnboardingView: View {
 
     @State private var currentPage: Int = 0
     @State private var isTransitioning = false
+    @State private var isVideoPlaying = true
 
     // Entrance animation state (ported from the view controller's transforms)
     @State private var mediaAlpha: CGFloat = 0
@@ -41,7 +42,8 @@ struct OnboardingView: View {
                 // Keep the video behind the arc so the blue shape masks its lower edge.
                 LoopingVideoView(
                     resourceName: currentItem.video,
-                    videoGravity: currentItem.video == "HowToUse2Video" ? .resizeAspectFill : .resizeAspect
+                    videoGravity: currentItem.video == "HowToUse2Video" ? .resizeAspectFill : .resizeAspect,
+                    isPlaying: isVideoPlaying
                 )
                 .frame(width: size.width, height: videoHeight)
                 .position(x: size.width / 2, y: videoTop + videoHeight / 2)
@@ -141,15 +143,13 @@ struct OnboardingView: View {
     private func goToNextPage() {
         guard !isTransitioning else { return }
         guard currentPage < onboardingScreens.count - 1 else { return }
-        currentPage += 1
-        transitionContent()
+        transitionContent(to: currentPage + 1)
     }
 
     private func goToPreviousPage() {
         guard !isTransitioning else { return }
         guard currentPage > 0 else { return }
-        currentPage -= 1
-        transitionContent()
+        transitionContent(to: currentPage - 1)
     }
 
     // MARK: - Transitions (ported from transitionContent / animateEntrance)
@@ -189,11 +189,12 @@ struct OnboardingView: View {
         }
     }
 
-    private func transitionContent() {
+    private func transitionContent(to page: Int) {
         guard !isTransitioning else { return }
         isTransitioning = true
+        isVideoPlaying = false
 
-        // Fade content out (0.3s, curveEaseInOut)
+        // Keep the current page mounted until its fade-out finishes.
         withAnimation(.easeInOut(duration: 0.3)) {
             mediaAlpha = 0
             titleAlpha = 0
@@ -203,10 +204,12 @@ struct OnboardingView: View {
         Task {
             try? await Task.sleep(nanoseconds: 300_000_000)
             await MainActor.run {
+                currentPage = page
                 prepareForEntranceAnimation()
+                isVideoPlaying = true
                 animateEntrance()
+                isTransitioning = false
             }
-            isTransitioning = false
         }
     }
 }

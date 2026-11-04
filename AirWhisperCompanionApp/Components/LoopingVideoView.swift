@@ -69,8 +69,6 @@ final class PlayerContainerView: UIView {
         player = queuePlayer
         looper = playerLooper
         playerLayer = layer
-
-        queuePlayer.play()
     }
 
     func setPlaying(_ isPlaying: Bool) {
