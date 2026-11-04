@@ -73,8 +73,7 @@ struct DeleteAccountOTPView: View {
 
                 DeleteAccountOTPFieldStack(
                     digits: $digits,
-                    focusedIndex: $focusedIndex,
-                    onSubmit: verifyTapped
+                    focusedIndex: $focusedIndex
                 )
                 .frame(height: 60)
                 .padding(.horizontal, 24)
@@ -229,7 +228,6 @@ private struct DeleteAccountOTPFieldStack: UIViewRepresentable {
 
     @Binding var digits: [String]
     @Binding var focusedIndex: Int?
-    let onSubmit: () -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
@@ -314,7 +312,6 @@ private struct DeleteAccountOTPFieldStack: UIViewRepresentable {
                     textFields[index + 1].becomeFirstResponder()
                 } else {
                     textField.resignFirstResponder()
-                    parent.onSubmit()
                 }
             }
         }

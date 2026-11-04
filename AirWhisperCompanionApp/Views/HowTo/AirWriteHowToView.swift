@@ -3,7 +3,10 @@ import AVFoundation
 import UIKit
 
 struct AirWriteHowToView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @State private var currentLetterIndex = 0
+    @State private var isMovingForward = true
     @State private var isVisible = false
     @State private var letterVideoAvailability: [String: Bool] = [:]
 
@@ -27,6 +30,16 @@ struct AirWriteHowToView: View {
 
     private var currentLetter: String {
         letters[currentLetterIndex]
+    }
+
+    private var letterTransition: AnyTransition {
+        guard !reduceMotion else { return .opacity }
+        let insertionEdge: Edge = isMovingForward ? .trailing : .leading
+        let removalEdge: Edge = isMovingForward ? .leading : .trailing
+        return .asymmetric(
+            insertion: .move(edge: insertionEdge).combined(with: .opacity),
+            removal: .move(edge: removalEdge).combined(with: .opacity)
+        )
     }
 
     var body: some View {
@@ -96,28 +109,44 @@ struct AirWriteHowToView: View {
 
                     VStack(spacing: 0) {
                         ZStack {
-                            Text(currentLetter)
-                                .id(currentLetter)
-                                .font(.system(size: 28, weight: .bold))
-                                .transition(.opacity)
+                            VStack(spacing: 0) {
+                                Text(currentLetter)
+                                    .font(.system(size: 28, weight: .bold))
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 34)
+                                    .padding(.top, 16)
+
+                                ZStack {
+                                    Color.white
+                                    if letterVideoAvailability[currentLetter] == false {
+                                        Text("Video coming soon")
+                                            .font(.system(size: 13))
+                                            .foregroundStyle(Color(uiColor: .tertiaryLabel))
+                                    } else {
+                                        AirWriteLetterVideoView(resourceName: currentLetter, isPlaying: isVisible)
+                                    }
+                                }
+                                .frame(height: 190)
+                                .padding(.top, 10)
+                            }
+                            .id(currentLetter)
+                            .transition(letterTransition)
                         }
                         .frame(maxWidth: .infinity)
-                        .frame(height: 34)
-                        .padding(.top, 16)
-
-                        ZStack {
-                            Color.white
-                            if letterVideoAvailability[currentLetter] == false {
-                                Text("Video coming soon")
-                                    .font(.system(size: 13))
-                                    .foregroundStyle(Color(uiColor: .tertiaryLabel))
-                            } else {
-                                AirWriteLetterVideoView(resourceName: currentLetter, isPlaying: isVisible)
-                                    .id(currentLetter)
-                            }
-                        }
-                        .frame(height: 190)
-                        .padding(.top, 10)
+                        .frame(height: 250)
+                        .clipped()
+                        .simultaneousGesture(
+                            DragGesture(minimumDistance: 36)
+                                .onEnded { value in
+                                    guard abs(value.translation.width) > abs(value.translation.height),
+                                          abs(value.translation.width) >= 45 else { return }
+                                    if value.translation.width < 0 {
+                                        showNextLetter()
+                                    } else {
+                                        showPreviousLetter()
+                                    }
+                                }
+                        )
 
                         HStack {
                             Button(action: showPreviousLetter) {
@@ -127,6 +156,8 @@ struct AirWriteHowToView: View {
                             .buttonStyle(.plain)
                             .foregroundStyle(accentColor)
                             .opacity(currentLetterIndex == 0 ? 0.3 : 1)
+                            .disabled(currentLetterIndex == 0)
+                            .accessibilityLabel("Previous letter")
 
                             Spacer()
 
@@ -137,6 +168,8 @@ struct AirWriteHowToView: View {
                             .buttonStyle(.plain)
                             .foregroundStyle(accentColor)
                             .opacity(currentLetterIndex == letters.count - 1 ? 0.3 : 1)
+                            .disabled(currentLetterIndex == letters.count - 1)
+                            .accessibilityLabel("Next letter")
                         }
                         .padding(.horizontal, 16)
                         .padding(.top, 10)
@@ -172,14 +205,18 @@ struct AirWriteHowToView: View {
     }
 
     private func showPreviousLetter() {
-        withAnimation(.easeInOut(duration: 0.18)) {
-            currentLetterIndex = (currentLetterIndex - 1 + letters.count) % letters.count
+        guard currentLetterIndex > 0 else { return }
+        withAnimation(.easeInOut(duration: reduceMotion ? 0.15 : 0.32)) {
+            isMovingForward = false
+            currentLetterIndex -= 1
         }
     }
 
     private func showNextLetter() {
-        withAnimation(.easeInOut(duration: 0.18)) {
-            currentLetterIndex = (currentLetterIndex + 1) % letters.count
+        guard currentLetterIndex < letters.count - 1 else { return }
+        withAnimation(.easeInOut(duration: reduceMotion ? 0.15 : 0.32)) {
+            isMovingForward = true
+            currentLetterIndex += 1
         }
     }
 }

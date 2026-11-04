@@ -4,8 +4,6 @@ import UIKit
 struct ContactsView: View {
     @EnvironmentObject private var dataManager: DataManager
 
-    let onBack: () -> Void
-
     @State private var searchText = ""
     @State private var allContacts: [MyPeople] = []
     @State private var searchResults: [MyPeople] = []
@@ -153,41 +151,25 @@ struct ContactsView: View {
     }
 
     private var header: some View {
-        ZStack {
+        HStack {
+            Spacer(minLength: 44)
+
+            Button {
+                isBetaAlertPresented = true
+            } label: {
+                Image(systemName: "person.crop.circle.badge.plus")
+                    .font(.system(size: 20, weight: .regular))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .tint(Color(red: 0.1137254902, green: 0.6313725490, blue: 0.9490196078, opacity: 1))
+        }
+        .overlay {
             Text("My People")
                 .font(.system(size: 20, weight: .bold))
-                .frame(maxWidth: .infinity)
-
-            HStack {
-                Button(action: onBack) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(Color(uiColor: .systemGray))
-                        .frame(width: 40, height: 40)
-                        .background(.ultraThinMaterial, in: Circle())
-                        .overlay {
-                            Circle()
-                                .stroke(Color.primary.opacity(0.06), lineWidth: 1)
-                        }
-                        .shadow(color: .black.opacity(0.08), radius: 5, x: 0, y: 2)
-                        .contentShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Back to Home")
-                .accessibilityHint("Returns to the Home tab.")
-
-                Spacer()
-
-                Button {
-                    isBetaAlertPresented = true
-                } label: {
-                    Image(systemName: "person.crop.circle.badge.plus")
-                        .frame(width: 40, height: 40)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .tint(Color(red: 0.1137254902, green: 0.6313725490, blue: 0.9490196078, opacity: 1))
-            }
+                .lineLimit(1)
+                .allowsHitTesting(false)
         }
         .padding(.horizontal, 16)
         .frame(height: 50)

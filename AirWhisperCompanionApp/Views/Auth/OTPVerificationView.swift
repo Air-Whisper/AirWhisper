@@ -90,7 +90,6 @@ struct OTPVerificationView: View {
                     OTPFieldStack(
                         digits: $digits,
                         focusedIndex: $focusedIndex,
-                        onSubmit: { verifyTapped() },
                         onDigitChange: { _, _ in }
                     )
                     .frame(height: 60)
@@ -230,7 +229,7 @@ struct OTPVerificationView: View {
 /// `UIViewRepresentable` wrapping a `UIStackView` with six `UITextField`s.
 /// Preserves the original OTP input behavior:
 /// - Single-character limit per field
-/// - Auto-advance on entry, auto-submit on 6th digit
+/// - Auto-advance on entry; verification starts only from the Verify button
 /// - Backspace on empty field moves focus back and clears previous
 /// - Focus ring (border width 2) on active field
 /// - Dynamic Type scaling via `UIFontMetrics`
@@ -238,7 +237,6 @@ struct OTPFieldStack: UIViewRepresentable {
 
     @Binding var digits: [String]
     @Binding var focusedIndex: Int?
-    let onSubmit: () -> Void
     let onDigitChange: (Int, String) -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -353,7 +351,7 @@ struct OTPFieldStack: UIViewRepresentable {
             parent.digits[index] = finalText
             parent.onDigitChange(index, finalText)
 
-            // Auto-advance or auto-submit
+            // Move through the fields as digits are entered. The Verify button submits the code.
             if finalText.count == 1 {
                 if index < textFields.count - 1 {
                     parent.focusedIndex = index + 1
@@ -361,7 +359,6 @@ struct OTPFieldStack: UIViewRepresentable {
                 } else {
                     parent.focusedIndex = nil
                     textField.resignFirstResponder()
-                    parent.onSubmit()
                 }
             }
         }

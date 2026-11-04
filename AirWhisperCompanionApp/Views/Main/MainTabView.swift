@@ -30,7 +30,7 @@ struct MainTabView: View {
                     .tag(MainTab.home)
 
                     NavigationStack(path: $peoplePath) {
-                        ContactsView(onBack: { selectedTab = .home })
+                        ContactsView()
                             .navigationDestination(for: MainNavigationDestination.self) { destination in
                                 destinationView(destination)
                             }

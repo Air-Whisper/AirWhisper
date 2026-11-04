@@ -120,10 +120,7 @@ struct ForgotPasswordOTPView: View {
             focusedIndex = index + 1
         }
 
-        // Auto-submit on 6th digit
-        if index == 5 && newText.count == 1 && isVerifyEnabled {
-            verifyOTP()
-        }
+        // Verification stays manual so the enabled Verify button is the only submit action.
     }
 
     private func handleBackspace(at index: Int) {
