@@ -99,7 +99,7 @@ struct OnboardingView: View {
                         }
                         .buttonStyle(.plain)
                     }
-                    .padding(.leading, -8)
+                    .padding(.leading, 8)
                     .padding(.trailing, 24)
                     .padding(.top, 20)
 

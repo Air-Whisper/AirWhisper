@@ -130,15 +130,14 @@ struct HomeView: View {
             .accessibilityLabel("Profile")
         }
         .frame(height: 70)
-        .padding(.leading, -Design.contentMargin)
     }
 
     private var howToSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Tutorial")
-                    .font(.system(size: 20, weight: .bold))
+            Text("Tutorial")
+                .font(.system(size: 20, weight: .bold))
 
+            VStack(spacing: 0) {
                 Button(action: toggleHowTo) {
                     HStack {
                         Text("How to Use")
@@ -154,27 +153,15 @@ struct HomeView: View {
                     .padding(.horizontal, 18)
                     .frame(height: 56)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Design.background)
-                    .clipShape(
-                        UnevenRoundedRectangle(
-                            topLeadingRadius: isHowToExpanded ? 24 : 18,
-                            bottomLeadingRadius: isHowToExpanded ? 0 : 18,
-                            bottomTrailingRadius: isHowToExpanded ? 0 : 18,
-                            topTrailingRadius: isHowToExpanded ? 24 : 18
-                        )
-                    )
                 }
                 .buttonStyle(.plain)
-            }
-            .coachMarkTarget("home-how-to")
+                .coachMarkTarget("home-how-to")
 
-            VStack(spacing: 0) {
                 TabView(selection: $carouselPage) {
                     ForEach(tutorialEntries) { entry in
                         NavigationLink(value: entry.destination) {
                             HomeTutorialCard(
                                 entry: entry,
-                                accentColor: accentColor,
                                 isPlaying: isHowToExpanded && isHomeVisible
                             )
                         }
@@ -187,19 +174,11 @@ struct HomeView: View {
                 .tint(accentColor)
                 .frame(height: isHowToExpanded ? 330 : 0)
                 .clipped()
+                .opacity(isHowToExpanded ? 1 : 0)
+                .accessibilityHidden(!isHowToExpanded)
             }
-            .padding(.bottom, isHowToExpanded ? 6 : 0)
             .background(Design.background)
-            .clipShape(
-                UnevenRoundedRectangle(
-                    topLeadingRadius: 0,
-                    bottomLeadingRadius: 18,
-                    bottomTrailingRadius: 18,
-                    topTrailingRadius: 0
-                )
-            )
-            .opacity(isHowToExpanded ? 1 : 0)
-            .accessibilityHidden(!isHowToExpanded)
+            .clipShape(RoundedRectangle(cornerRadius: 18))
         }
     }
 
@@ -411,7 +390,6 @@ private struct HomeTutorialEntry: Identifiable {
 
 private struct HomeTutorialCard: View {
     let entry: HomeTutorialEntry
-    let accentColor: Color
     let isPlaying: Bool
 
     var body: some View {
@@ -436,13 +414,6 @@ private struct HomeTutorialCard: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Color(uiColor: .systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay {
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(accentColor.opacity(0.15), lineWidth: 1)
-        }
-        .contentShape(RoundedRectangle(cornerRadius: 16))
     }
 }
 
