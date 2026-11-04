@@ -1,4 +1,5 @@
 import Combine
+import CoreGraphics
 import Foundation
 
 final class SwiftUICoachMarkManager: ObservableObject {
