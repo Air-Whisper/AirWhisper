@@ -79,6 +79,7 @@ struct ManageQuickSpeakView: View {
                 ForEach(phrases) { phrase in
                     Text(phrase.text)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                        .moveDisabled(isHelpPhrase(phrase.text))
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                             if !isHelpPhrase(phrase.text) {
                                 Button("Delete", role: .destructive) {
@@ -87,6 +88,7 @@ struct ManageQuickSpeakView: View {
                             }
                         }
                 }
+                .onMove(perform: movePhrases)
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
@@ -97,6 +99,11 @@ struct ManageQuickSpeakView: View {
         .navigationTitle("Manage Quick Speak")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                EditButton()
+            }
+        }
         .coachMarkTour(
             screenKey: "quickspeak",
             steps: [
@@ -154,6 +161,23 @@ struct ManageQuickSpeakView: View {
         withAnimation {
             dataManager.removeQuickPhrase(at: index)
             phrases.remove(at: index)
+        }
+    }
+
+    private func movePhrases(from source: IndexSet, to destination: Int) {
+        guard !source.contains(where: { isHelpPhrase(phrases[$0].text) }) else { return }
+
+        var reordered = phrases
+        reordered.move(fromOffsets: source, toOffset: destination)
+
+        if let helpIndex = reordered.firstIndex(where: { isHelpPhrase($0.text) }) {
+            let helpPhrase = reordered.remove(at: helpIndex)
+            reordered.insert(helpPhrase, at: 0)
+        }
+
+        withAnimation {
+            dataManager.reorderQuickPhrases(reordered)
+            phrases = dataManager.getQuickPhrases()
         }
     }
 

@@ -169,11 +169,29 @@ struct HomeView: View {
                         .tag(entry.pageIndex)
                     }
                 }
-                .tabViewStyle(.page(indexDisplayMode: .always))
-                .indexViewStyle(.page(backgroundDisplayMode: .always))
+                .tabViewStyle(.page(indexDisplayMode: .never))
                 .tint(accentColor)
                 .frame(height: isHowToExpanded ? 330 : 0)
                 .clipped()
+                .overlay(alignment: .bottom) {
+                    if isHowToExpanded {
+                        PageIndicatorView(
+                            numberOfPages: tutorialEntries.count,
+                            currentPage: carouselPage,
+                            activeTintColor: UIColor(
+                                red: 0.1137254902,
+                                green: 0.631372549,
+                                blue: 0.9490196078,
+                                alpha: 1
+                            )
+                        )
+                        .frame(height: 26)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .padding(.horizontal, 10)
+                        .background(Capsule().fill(Color(uiColor: .tertiarySystemFill)))
+                        .padding(.bottom, 4)
+                    }
+                }
                 .opacity(isHowToExpanded ? 1 : 0)
                 .accessibilityHidden(!isHowToExpanded)
             }

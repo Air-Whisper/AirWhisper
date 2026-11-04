@@ -216,12 +216,13 @@ struct PageIndicatorView: UIViewRepresentable {
 
     let numberOfPages: Int
     let currentPage: Int
+    var activeTintColor = UIColor(red: 0.039, green: 0.376, blue: 0.776, alpha: 1)
 
     func makeUIView(context: Context) -> UIPageControl {
         let control = UIPageControl()
         control.numberOfPages = numberOfPages
         control.currentPage = currentPage
-        control.currentPageIndicatorTintColor = UIColor(red: 0.039, green: 0.376, blue: 0.776, alpha: 1)
+        control.currentPageIndicatorTintColor = activeTintColor
         control.pageIndicatorTintColor = UIColor.systemGray4
         control.isUserInteractionEnabled = false
         return control
@@ -230,5 +231,6 @@ struct PageIndicatorView: UIViewRepresentable {
     func updateUIView(_ uiView: UIPageControl, context: Context) {
         uiView.numberOfPages = numberOfPages
         uiView.currentPage = currentPage
+        uiView.currentPageIndicatorTintColor = activeTintColor
     }
 }

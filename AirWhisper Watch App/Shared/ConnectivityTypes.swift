@@ -54,10 +54,19 @@ struct AWPhraseItem: Codable {
 struct AWPhraseSyncPayload: Codable {
     let type: AWPayloadType
     let phraseItems: [AWPhraseItem]
+    let orderRevision: Int?
+    let activityRevision: Int?
 
-    init(type: AWPayloadType, phraseItems: [AWPhraseItem]) {
+    init(
+        type: AWPayloadType,
+        phraseItems: [AWPhraseItem],
+        orderRevision: Int? = nil,
+        activityRevision: Int? = nil
+    ) {
         self.type = type
         self.phraseItems = phraseItems
+        self.orderRevision = orderRevision
+        self.activityRevision = activityRevision
     }
 }
 

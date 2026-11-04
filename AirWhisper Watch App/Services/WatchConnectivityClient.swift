@@ -142,10 +142,14 @@ final class WatchConnectivityClient: NSObject, ObservableObject {
 
         case .phraseSync:
             guard let phrasePayload = try? decoder.decode(AWPhraseSyncPayload.self, from: data) else { return }
-            markInitialCompanionSyncReceived()
             let items = phrasePayload.phraseItems
+            guard PhraseManager.shared.syncPhrasesFromiPhone(
+                items,
+                orderRevision: phrasePayload.orderRevision,
+                activityRevision: phrasePayload.activityRevision
+            ) else { return }
+            markInitialCompanionSyncReceived()
             receivedPhrases = items.map { $0.text }
-            PhraseManager.shared.syncPhrasesFromiPhone(items)
 
         case .settingsSync:
             guard let settingsPayload = try? decoder.decode(AWSettingsSyncPayload.self, from: data) else { return }

@@ -16,6 +16,8 @@ final class WatchConnectivityManager: NSObject, ObservableObject  { // NSObject 
     private let decoder = JSONDecoder()
     private var queuedContacts: [MyPeople]?
     private var queuedPhraseItems: [AWPhraseItem]?
+    private var queuedPhraseOrderRevision = 0
+    private var queuedPhraseActivityRevision = 0
     private var queuedSettings: WatchSettings?
     private var queuedJWTToken: String?
     private var queuedSessionReset = false
@@ -74,9 +76,15 @@ final class WatchConnectivityManager: NSObject, ObservableObject  { // NSObject 
         // encoding to binary to make contacts suitable for transmission.
     }
 
-    func sendPhrases(_ items: [AWPhraseItem]) {
+    func sendPhrases(
+        _ items: [AWPhraseItem],
+        orderRevision: Int = 0,
+        activityRevision: Int = 0
+    ) {
         guard let session = session else {
             queuedPhraseItems = items
+            queuedPhraseOrderRevision = orderRevision
+            queuedPhraseActivityRevision = activityRevision
             print("[WatchConnectivity] Session unavailable, queued phrase items")
             return
         }
@@ -84,13 +92,20 @@ final class WatchConnectivityManager: NSObject, ObservableObject  { // NSObject 
 
         guard session.activationState == .activated else {
             queuedPhraseItems = items
+            queuedPhraseOrderRevision = orderRevision
+            queuedPhraseActivityRevision = activityRevision
             print("[WatchConnectivity] Session not activated, queued phrase items")
             return
         }
         // to check if the session is activated.
 
         let uppercasedItems = items.map { AWPhraseItem(text: $0.text.uppercased(), useCount: $0.useCount) }
-        let payload = AWPhraseSyncPayload(type: .phraseSync, phraseItems: uppercasedItems)
+        let payload = AWPhraseSyncPayload(
+            type: .phraseSync,
+            phraseItems: uppercasedItems,
+            orderRevision: orderRevision,
+            activityRevision: activityRevision
+        )
         // creating a payload with the uppercased phrase items, as the watch app expects them in uppercase for consistency and display purposes.
         do {
             let data = try encoder.encode(payload)
@@ -145,7 +160,11 @@ final class WatchConnectivityManager: NSObject, ObservableObject  { // NSObject 
         } // if there are any queued contacts, send them now that the session is active.
 
         if let phraseItems = queuedPhraseItems {
-            sendPhrases(phraseItems)
+            sendPhrases(
+                phraseItems,
+                orderRevision: queuedPhraseOrderRevision,
+                activityRevision: queuedPhraseActivityRevision
+            )
         } // if there are any queued phrase items, send them now that the session is active.
 
         if let settings = queuedSettings {
@@ -251,7 +270,11 @@ extension WatchConnectivityManager: WCSessionDelegate {
             guard let phrasePayload = try? decoder.decode(AWPhraseSyncPayload.self, from: data) else { return }
             DispatchQueue.main.async {
                 let items = phrasePayload.phraseItems
-                DataManager.shared.replaceQuickPhrasesFromWatch(items)
+                DataManager.shared.replaceQuickPhrasesFromWatch(
+                    items,
+                    orderRevision: phrasePayload.orderRevision ?? 0,
+                    activityRevision: phrasePayload.activityRevision ?? 0
+                )
             }
 
         case .messageHistory:
@@ -403,7 +426,11 @@ extension WatchConnectivityManager: WCSessionDelegate {
         let settings = DataManager.shared.getWatchSettings()
 
         sendContacts(contacts)
-        sendPhrases(phraseItems)
+        sendPhrases(
+            phraseItems,
+            orderRevision: DataManager.shared.phraseOrderRevision,
+            activityRevision: DataManager.shared.phraseActivityRevision
+        )
         if let s = settings {
             sendSettings(s)
         }

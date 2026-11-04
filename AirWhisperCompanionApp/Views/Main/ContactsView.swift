@@ -160,11 +160,16 @@ struct ContactsView: View {
 
             HStack {
                 Button(action: onBack) {
-                    Image(systemName: "chevron.backward")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Color(uiColor: .systemBlue))
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(Color(uiColor: .systemGray))
                         .frame(width: 40, height: 40)
-                        .background(Color(uiColor: .secondarySystemBackground), in: Circle())
+                        .background(.ultraThinMaterial, in: Circle())
+                        .overlay {
+                            Circle()
+                                .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+                        }
+                        .shadow(color: .black.opacity(0.08), radius: 5, x: 0, y: 2)
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
