@@ -156,7 +156,6 @@ struct AirWriteHowToView: View {
                             .buttonStyle(.plain)
                             .foregroundStyle(accentColor)
                             .opacity(currentLetterIndex == 0 ? 0.3 : 1)
-                            .disabled(currentLetterIndex == 0)
                             .accessibilityLabel("Previous letter")
 
                             Spacer()
@@ -168,7 +167,6 @@ struct AirWriteHowToView: View {
                             .buttonStyle(.plain)
                             .foregroundStyle(accentColor)
                             .opacity(currentLetterIndex == letters.count - 1 ? 0.3 : 1)
-                            .disabled(currentLetterIndex == letters.count - 1)
                             .accessibilityLabel("Next letter")
                         }
                         .padding(.horizontal, 16)
@@ -205,18 +203,16 @@ struct AirWriteHowToView: View {
     }
 
     private func showPreviousLetter() {
-        guard currentLetterIndex > 0 else { return }
         withAnimation(.easeInOut(duration: reduceMotion ? 0.15 : 0.32)) {
             isMovingForward = false
-            currentLetterIndex -= 1
+            currentLetterIndex = (currentLetterIndex - 1 + letters.count) % letters.count
         }
     }
 
     private func showNextLetter() {
-        guard currentLetterIndex < letters.count - 1 else { return }
         withAnimation(.easeInOut(duration: reduceMotion ? 0.15 : 0.32)) {
             isMovingForward = true
-            currentLetterIndex += 1
+            currentLetterIndex = (currentLetterIndex + 1) % letters.count
         }
     }
 }

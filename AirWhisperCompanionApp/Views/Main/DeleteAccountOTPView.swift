@@ -311,6 +311,7 @@ private struct DeleteAccountOTPFieldStack: UIViewRepresentable {
                 if index < textFields.count - 1 {
                     textFields[index + 1].becomeFirstResponder()
                 } else {
+                    parent.focusedIndex = nil
                     textField.resignFirstResponder()
                 }
             }
