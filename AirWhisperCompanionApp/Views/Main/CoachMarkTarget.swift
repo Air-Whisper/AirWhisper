@@ -22,7 +22,7 @@ private struct CoachMarkTargetModifier: ViewModifier {
                 GeometryReader { geometry in
                     Color.clear.preference(
                         key: CoachMarkFramesPreferenceKey.self,
-                        value: [target: geometry.frame(in: .named(CoachMarkCoordinateSpace.name))]
+                        value: [target: geometry.frame(in: .global)]
                     )
                 }
             }

@@ -13,7 +13,10 @@ struct CoachMarkTourOverlay: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let target = targetFrame ?? .zero
+            let overlayFrame = geometry.frame(in: .global)
+            let target = targetFrame.map { frame in
+                frame.offsetBy(dx: -overlayFrame.minX, dy: -overlayFrame.minY)
+            } ?? .zero
             let spotlight = target.insetBy(dx: -spotlightPadding, dy: -spotlightPadding)
             let width = min(geometry.size.width - 32, tooltipWidthLimit)
             let x = min(max(target.midX, 16 + width / 2), geometry.size.width - 16 - width / 2)
@@ -30,16 +33,19 @@ struct CoachMarkTourOverlay: View {
                 Color.clear
                     .contentShape(Rectangle())
                     .onTapGesture { }
+                    .zIndex(0)
 
                 if let step = manager.activeStep {
                     tooltip(step: step, width: width, arrowOffset: target.midX - x)
                         .id(step.id)
                         .transition(.opacity)
                         .position(x: x, y: y)
+                        .zIndex(1)
                 }
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
         }
+        .ignoresSafeArea()
         .transition(.opacity)
         .accessibilityAddTraits(.isModal)
     }
@@ -68,18 +74,22 @@ struct CoachMarkTourOverlay: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Button(manager.currentStepIndex == manager.steps.count - 1 ? "Got it!" : "Next", action: advance)
-            .font(.system(size: 15, weight: .semibold))
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity)
-            .frame(height: 36)
-            .background(manager.currentStepIndex == manager.steps.count - 1 ? Color.green : Color(uiColor: .systemBlue))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+                .buttonStyle(.plain)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 36)
+                .background(manager.currentStepIndex == manager.steps.count - 1 ? Color.green : Color(uiColor: .systemBlue))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .contentShape(RoundedRectangle(cornerRadius: 8))
 
             Button("Skip Tour", action: skip)
-            .font(.system(size: 14))
-            .foregroundStyle(Design.secondaryLabel.opacity(0.6))
-            .frame(maxWidth: .infinity)
-            .frame(height: 24)
+                .buttonStyle(.plain)
+                .font(.system(size: 14))
+                .foregroundStyle(Design.secondaryLabel.opacity(0.6))
+                .frame(maxWidth: .infinity)
+                .frame(height: 24)
+                .contentShape(Rectangle())
         }
         .padding(16)
         .frame(width: width, height: tooltipHeight)

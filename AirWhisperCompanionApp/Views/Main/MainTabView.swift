@@ -30,7 +30,7 @@ struct MainTabView: View {
                     .tag(MainTab.home)
 
                     NavigationStack(path: $peoplePath) {
-                        ContactsView()
+                        ContactsView(onBack: { selectedTab = .home })
                             .navigationDestination(for: MainNavigationDestination.self) { destination in
                                 destinationView(destination)
                             }
@@ -41,13 +41,15 @@ struct MainTabView: View {
                     .tag(MainTab.people)
                 }
 
-                if let activeStep = coachMarkManager.activeStep,
-                   let targetFrame = coachMarkManager.targetFrames[activeStep.target] {
+                if let activeStep = coachMarkManager.activeStep {
                     CoachMarkTourOverlay(
                         manager: coachMarkManager,
-                        targetFrame: targetFrame,
+                        targetFrame: coachMarkManager.targetFrames[activeStep.target],
                         safeAreaInsets: geometry.safeAreaInsets
                     )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .ignoresSafeArea()
+                    .zIndex(1)
                 }
             }
             .coordinateSpace(name: CoachMarkCoordinateSpace.name)

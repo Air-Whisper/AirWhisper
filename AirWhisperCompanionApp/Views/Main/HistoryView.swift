@@ -9,7 +9,7 @@ struct HistoryView: View {
         if sections.isEmpty {
             return [
                 CoachMarkStep(
-                    target: "emptyState",
+                    target: "history-empty-state",
                     message: "No messages sent yet  - they'll appear here after you send one from the Watch.",
                     position: .above
                 )
@@ -50,7 +50,7 @@ struct HistoryView: View {
                         .padding(.top, 6)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .coachMarkTarget("emptyState")
+                .coachMarkTarget("history-empty-state")
             } else {
                 List {
                     ForEach(sections, id: \.title) { section in

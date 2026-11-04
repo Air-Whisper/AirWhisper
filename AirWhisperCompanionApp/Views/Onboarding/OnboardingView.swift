@@ -31,10 +31,9 @@ struct OnboardingView: View {
     var body: some View {
         GeometryReader { geometry in
             let size = geometry.size
-            let safeInsets = geometry.safeAreaInsets
             let arcHeight = min(362, size.height * 0.48)
-            let videoTop = safeInsets.top + 150
-            let videoHeight = max(0, size.height - videoTop - arcHeight + 30)
+            let videoTop: CGFloat = 90
+            let videoHeight = max(0, size.height - videoTop - arcHeight + 55)
 
             ZStack(alignment: .bottom) {
                 Design.background
@@ -56,6 +55,7 @@ struct OnboardingView: View {
                     .frame(width: size.width, height: arcHeight)
                     .frame(maxHeight: .infinity, alignment: .bottom)
                     .clipped()
+                    .ignoresSafeArea(edges: .bottom)
                     .zIndex(1)
 
                 VStack(alignment: .leading, spacing: 20) {
@@ -76,7 +76,7 @@ struct OnboardingView: View {
                 }
                 .frame(width: max(0, size.width - 65), alignment: .leading)
                 .padding(.leading, 30)
-                .padding(.bottom, safeInsets.bottom + 148)
+                .padding(.bottom, 148)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
                 .zIndex(2)
 
@@ -85,7 +85,7 @@ struct OnboardingView: View {
                         Image("AirWhisperLogoLightmode")
                             .resizable()
                             .scaledToFit()
-                            .frame(width: 278, height: 54, alignment: .leading)
+                            .frame(width: min(278, size.width - 120), height: 54, alignment: .leading)
                             .accessibilityHidden(true)
 
                         Spacer(minLength: 0)
@@ -94,14 +94,14 @@ struct OnboardingView: View {
                             Text(skipButtonTitle)
                                 .font(.system(size: 17))
                                 .foregroundStyle(Color(uiColor: .systemBlue))
-                                .frame(minWidth: 60, minHeight: 35)
+                                .frame(width: 64, height: 48)
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                     }
                     .padding(.leading, -8)
-                    .padding(.trailing, safeInsets.trailing + 35)
-                    .padding(.top, safeInsets.top + 20)
+                    .padding(.trailing, 24)
+                    .padding(.top, 20)
 
                     Spacer(minLength: 0)
                 }
@@ -110,13 +110,13 @@ struct OnboardingView: View {
 
                 PageIndicatorView(numberOfPages: onboardingScreens.count, currentPage: currentPage)
                     .frame(height: 26)
-                    .padding(.bottom, safeInsets.bottom + 20)
+                    .padding(.bottom, 20)
                     .zIndex(3)
             }
         }
-        .ignoresSafeArea()
+        .background(Design.background.ignoresSafeArea())
         .onAppear { animateEntrance() }
-        .highPriorityGesture(
+        .simultaneousGesture(
             DragGesture(minimumDistance: 50)
                 .onEnded { value in
                     if value.translation.width < 0 {

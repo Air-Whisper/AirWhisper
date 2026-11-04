@@ -24,39 +24,66 @@ struct WatchPairingView: View {
     @State private var showsSettingsUnavailableAlert = false
 
     var body: some View {
-        VStack(spacing: 24) {
-            Spacer()
-
-            Text("Connect your Apple Watch")
-                .font(.system(size: 25, weight: .bold))
-                .multilineTextAlignment(.center)
-
-            Text("AirWhisper works best with an Apple Watch. You can still manage contacts, phrases, and history without one.")
-                .font(.system(size: 16))
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 24)
-
-            Button {
-                pairWatchButtonTapped()
-            } label: {
-                Text(pairButtonTitle)
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(height: 50)
+        GeometryReader { geometry in
+            VStack(alignment: .leading, spacing: 0) {
+                Image("AirWhisperLogoLightmode")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: min(278, geometry.size.width - 48), height: 54)
                     .frame(maxWidth: .infinity)
-                    .background(Design.brandBlue)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-            }
-            .padding(.horizontal, 24)
-            .accessibilityLabel(pairButtonA11yLabel)
-            .accessibilityValue(pairButtonA11yValue)
-            .accessibilityHint(pairButtonA11yHint)
+                    .accessibilityHidden(true)
+                    .padding(.top, 16)
 
-            Spacer()
+                Image("WatchOnBoarding")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(
+                        width: min(325, geometry.size.width - 68),
+                        height: min(248, geometry.size.height * 0.37)
+                    )
+                    .frame(maxWidth: .infinity)
+                    .accessibilityHidden(true)
+                    .padding(.top, 50)
+
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("APPLE WATCH")
+                        .font(.system(size: 35, weight: .bold))
+                        .foregroundStyle(.primary)
+
+                    Text("REQUIRED")
+                        .font(.system(size: 35, weight: .bold))
+                        .foregroundStyle(Color(red: 0.3414, green: 0.5779, blue: 0.8398, opacity: 1))
+                }
+                .padding(.leading, 34)
+                .padding(.top, 50)
+
+                Text("To use AirWhisper, you must have an Apple Watch paired with this iPhone and the AirWhisper Watch App installed.")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(Color(white: 0.333))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 34)
+                    .padding(.top, 20)
+
+                Spacer(minLength: 20)
+
+                Button(action: pairWatchButtonTapped) {
+                    Text(pairButtonTitle)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background(Color(red: 0.3416, green: 0.5771, blue: 0.8403, opacity: 1))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+                .padding(.horizontal, 40)
+                .padding(.bottom, 23)
+                .accessibilityLabel(pairButtonA11yLabel)
+                .accessibilityValue(pairButtonA11yValue)
+                .accessibilityHint(pairButtonA11yHint)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .background(Design.background.ignoresSafeArea())
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Design.background)
         .onAppear { updateButtonState() }
         .onReceive(NotificationCenter.default.publisher(for: AppState.watchConnectionStatusChangedNotification)) { _ in
             updateButtonState()

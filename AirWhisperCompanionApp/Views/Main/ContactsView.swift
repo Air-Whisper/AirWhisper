@@ -4,6 +4,8 @@ import UIKit
 struct ContactsView: View {
     @EnvironmentObject private var dataManager: DataManager
 
+    let onBack: () -> Void
+
     @State private var searchText = ""
     @State private var allContacts: [MyPeople] = []
     @State private var searchResults: [MyPeople] = []
@@ -31,7 +33,7 @@ struct ContactsView: View {
         if contacts.isEmpty {
             return [
                 CoachMarkStep(
-                    target: "emptyState",
+                    target: "contacts-empty-state",
                     message: "No contacts yet  - tap 'Import from Device' to get started.",
                     position: .above
                 )
@@ -73,7 +75,7 @@ struct ContactsView: View {
                             .multilineTextAlignment(.center)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .coachMarkTarget("emptyState")
+                    .coachMarkTarget("contacts-empty-state")
                 } else {
                     VStack(spacing: 0) {
                         HStack(spacing: 8) {
@@ -157,10 +159,17 @@ struct ContactsView: View {
                 .frame(maxWidth: .infinity)
 
             HStack {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 18, weight: .regular))
-                    .foregroundStyle(.primary)
-                    .frame(width: 40, height: 40)
+                Button(action: onBack) {
+                    Image(systemName: "chevron.backward")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color(uiColor: .systemBlue))
+                        .frame(width: 40, height: 40)
+                        .background(Color(uiColor: .secondarySystemBackground), in: Circle())
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Back to Home")
+                .accessibilityHint("Returns to the Home tab.")
 
                 Spacer()
 

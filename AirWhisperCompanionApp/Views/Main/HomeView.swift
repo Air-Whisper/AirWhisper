@@ -72,7 +72,7 @@ struct HomeView: View {
             .padding(.bottom, 24)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .background(Design.background)
+        .background(Design.groupedBackground)
         .coachMarkTour(
             screenKey: "home",
             steps: [
@@ -154,7 +154,7 @@ struct HomeView: View {
                     .padding(.horizontal, 18)
                     .frame(height: 56)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(uiColor: .secondarySystemBackground))
+                    .background(Design.background)
                     .clipShape(
                         UnevenRoundedRectangle(
                             topLeadingRadius: isHowToExpanded ? 24 : 18,
@@ -189,7 +189,7 @@ struct HomeView: View {
                 .clipped()
             }
             .padding(.bottom, isHowToExpanded ? 6 : 0)
-            .background(Color(uiColor: .secondarySystemBackground))
+            .background(Design.background)
             .clipShape(
                 UnevenRoundedRectangle(
                     topLeadingRadius: 0,
@@ -229,7 +229,7 @@ struct HomeView: View {
                 .padding(.trailing, 12)
                 .frame(height: 50)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(uiColor: .secondarySystemBackground))
+                .background(Design.background)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
             }
             .buttonStyle(.plain)
@@ -305,7 +305,7 @@ struct HomeView: View {
                 .padding(.top, 4)
             }
             .padding(16)
-            .background(Color(uiColor: .secondarySystemBackground))
+            .background(Design.background)
             .clipShape(RoundedRectangle(cornerRadius: 18))
         }
     }
@@ -331,7 +331,7 @@ struct HomeView: View {
                 .padding(.trailing, 12)
                 .frame(height: 50)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(uiColor: .secondarySystemBackground))
+                .background(Design.background)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
             }
             .buttonStyle(.plain)
@@ -459,6 +459,8 @@ private struct SettingsToggleRow: View {
             HStack(spacing: 8) {
                 Text(title)
                     .font(.system(size: 17))
+
+                Spacer(minLength: 0)
 
                 Toggle(title, isOn: $isOn)
                     .labelsHidden()

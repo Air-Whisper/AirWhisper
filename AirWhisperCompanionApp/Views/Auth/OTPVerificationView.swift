@@ -27,6 +27,7 @@ struct OTPVerificationView: View {
 
     // MARK: - State
     @State private var digits: [String] = Array(repeating: "", count: 6)
+    @State private var focusedIndex: Int? = 0
     @State private var isSubmitting = false
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
@@ -88,7 +89,7 @@ struct OTPVerificationView: View {
                     // 6-digit OTP fields (UIKit-backed for exact parity)
                     OTPFieldStack(
                         digits: $digits,
-                        focusedIndex: .constant(0), // initial focus handled by representable
+                        focusedIndex: $focusedIndex,
                         onSubmit: { verifyTapped() },
                         onDigitChange: { _, _ in }
                     )
@@ -177,6 +178,7 @@ struct OTPVerificationView: View {
                     showErrorAlert = true
                     // Clear all fields and focus first
                     digits = Array(repeating: "", count: 6)
+                    focusedIndex = 0
                 }
             }
         }
@@ -309,6 +311,8 @@ struct OTPFieldStack: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: UIStackView, context: Context) {
+        context.coordinator.parent = self
+
         // Sync text fields with digits binding
         for (i, field) in context.coordinator.textFields.enumerated() {
             if field.text != digits[i] {
@@ -329,7 +333,7 @@ struct OTPFieldStack: UIViewRepresentable {
     // MARK: - Coordinator
 
     final class Coordinator: NSObject, UITextFieldDelegate {
-        let parent: OTPFieldStack
+        var parent: OTPFieldStack
         var textFields: [UITextField] = []
 
         init(_ parent: OTPFieldStack) {
@@ -352,8 +356,10 @@ struct OTPFieldStack: UIViewRepresentable {
             // Auto-advance or auto-submit
             if finalText.count == 1 {
                 if index < textFields.count - 1 {
+                    parent.focusedIndex = index + 1
                     textFields[index + 1].becomeFirstResponder()
                 } else {
+                    parent.focusedIndex = nil
                     textField.resignFirstResponder()
                     parent.onSubmit()
                 }
@@ -370,6 +376,7 @@ struct OTPFieldStack: UIViewRepresentable {
                 let index = textFields.firstIndex(of: textField) ?? 0
                 if index > 0 {
                     let prevField = textFields[index - 1]
+                    parent.focusedIndex = index - 1
                     prevField.becomeFirstResponder()
                     prevField.text = ""
                     parent.digits[index - 1] = ""
@@ -393,6 +400,11 @@ struct OTPFieldStack: UIViewRepresentable {
             let brandBlueUIColor = UIColor(red: 0.039, green: 0.376, blue: 0.776, alpha: 1)
             textField.layer.borderColor = brandBlueUIColor.cgColor
             textField.layer.borderWidth = 1
+
+            let index = textFields.firstIndex(of: textField) ?? 0
+            if parent.focusedIndex == index {
+                parent.focusedIndex = nil
+            }
         }
     }
 }

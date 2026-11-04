@@ -6,7 +6,6 @@ import GoogleSignIn
 /// Create Account screen with the legacy validation and sign-in options.
 ///
 /// Parity notes (from the original):
-/// - No logo and no big title on this screen (storyboard scene has fields only).
 /// - Create button is disabled + 0.45 alpha until the ToS checkbox is accepted.
 /// - Apple sign-in sets an Apple-ID session (iCloud sync); email/Google show
 ///   the "Data Stored Locally" notice before continuing.
@@ -39,6 +38,17 @@ struct CreateAccountView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
+                Image("AirWhisperLogoLightmode")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 278, height: 64)
+                    .frame(maxWidth: .infinity)
+                    .accessibilityHidden(true)
+
+                Text("Create Account")
+                    .font(.system(size: 30, weight: .bold))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
                 AuthTextField(placeholder: "Full Name", text: $name, fontSize: 16)
 
                 AuthTextField(
@@ -51,7 +61,7 @@ struct CreateAccountView: View {
                 AuthTextField(placeholder: "Password", text: $password, isSecure: true, fontSize: 16)
 
                 // MARK: Terms of Service row (checkbox + tappable legal links)
-                HStack(alignment: .top, spacing: 10) {
+                HStack(alignment: .center, spacing: 10) {
                     Button {
                         tosAccepted.toggle()
                     } label: {
@@ -67,6 +77,7 @@ struct CreateAccountView: View {
                     .accessibilityValue(tosAccepted ? "Checked" : "Unchecked")
 
                     tosAgreementLabel
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding(.top, 4)
 

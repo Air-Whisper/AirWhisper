@@ -13,7 +13,23 @@ final class SwiftUICoachMarkManager: ObservableObject {
     }
 
     func startTourIfNeeded(screenKey: String, steps: [CoachMarkStep]) {
-        guard !steps.isEmpty, activeScreenKey == nil else { return }
+        guard !steps.isEmpty else { return }
+
+        if activeScreenKey == screenKey {
+            guard self.steps != steps else { return }
+
+            let currentTarget = activeStep?.target
+            let previousIndex = currentStepIndex
+            let updatedIndex = currentTarget.flatMap { target in
+                steps.firstIndex(where: { $0.target == target })
+            } ?? (steps.indices.contains(previousIndex) ? previousIndex : 0)
+
+            self.steps = steps
+            currentStepIndex = updatedIndex
+            return
+        }
+
+        guard activeScreenKey == nil else { return }
         guard !UserDefaults.standard.bool(forKey: "tour_completed_\(screenKey)") else { return }
 
         self.steps = steps
@@ -22,7 +38,9 @@ final class SwiftUICoachMarkManager: ObservableObject {
     }
 
     func updateTargetFrames(_ frames: [String: CGRect]) {
-        targetFrames = frames
+        targetFrames = frames.filter { _, frame in
+            !frame.isNull && !frame.isInfinite && frame.width > 0 && frame.height > 0
+        }
     }
 
     func advance() {
