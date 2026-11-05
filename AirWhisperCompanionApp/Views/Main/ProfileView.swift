@@ -70,6 +70,11 @@ struct ProfileView: View {
                 .frame(width: 176, height: 44)
                 .foregroundStyle(Color(uiColor: .systemBlue))
                 .coachMarkTarget("profile-reset-defaults")
+
+                Link("Learn more", destination: URL(string: "https://www.airwhisper.in/how-to-use")!)
+                    .buttonStyle(.plain)
+                    .frame(width: 176, height: 44)
+                    .foregroundStyle(Color(uiColor: .systemBlue))
             }
             .padding(.horizontal, Design.contentMargin)
             .padding(.top, 40)
