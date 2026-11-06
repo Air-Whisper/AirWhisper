@@ -159,10 +159,6 @@ struct ProfileView: View {
                 .font(.system(size: 22, weight: .bold))
                 .foregroundStyle(.primary)
                 .coachMarkTarget("profile-name")
-
-            Text("Personal Account")
-                .font(.system(size: 16))
-                .foregroundStyle(Design.secondaryLabel)
         }
         .frame(maxWidth: .infinity)
         .multilineTextAlignment(.center)
