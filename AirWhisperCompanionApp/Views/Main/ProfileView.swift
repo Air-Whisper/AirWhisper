@@ -56,6 +56,7 @@ struct ProfileView: View {
         .scrollIndicators(.hidden)
         .background(Design.groupedBackground.ignoresSafeArea())
         .toolbar(.hidden, for: .navigationBar)
+        .toolbar(.hidden, for: .tabBar)
         .coachMarkTour(
             screenKey: "profile",
             steps: [
