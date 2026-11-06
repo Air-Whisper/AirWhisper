@@ -194,27 +194,21 @@ struct ProfileView: View {
         VStack(alignment: .leading, spacing: 10) {
             sectionTitle("PREFERENCES")
 
-            VStack(spacing: 0) {
+            VStack(spacing: 10) {
                 Button {
                     activeAlert = .resetConfirmation
                 } label: {
-                    HStack {
-                        Text("Reset to Default")
-                            .foregroundStyle(.primary)
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundStyle(Color(uiColor: .tertiaryLabel))
-                    }
-                    .font(.system(size: 17))
-                    .padding(.horizontal, 16)
-                    .frame(height: 58)
-                    .contentShape(Rectangle())
+                    Text("Reset to Default")
+                        .font(.system(size: 17))
+                        .padding(.horizontal, 16)
+                        .frame(height: 58)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .foregroundStyle(.primary)
+                .background(cardColor, in: RoundedRectangle(cornerRadius: 18))
                 .coachMarkTarget("profile-reset-defaults")
-
-                Divider()
 
                 Link(destination: URL(string: "https://www.airwhisper.in/how-to-use")!) {
                     HStack {
@@ -231,8 +225,8 @@ struct ProfileView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .background(cardColor, in: RoundedRectangle(cornerRadius: 18))
             }
-            .background(cardColor, in: RoundedRectangle(cornerRadius: 22))
         }
     }
 
