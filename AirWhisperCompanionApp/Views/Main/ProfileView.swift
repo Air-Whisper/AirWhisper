@@ -1,11 +1,12 @@
 import SwiftUI
 import UIKit
 
-/// Profile actions and account details.
+/// Account details and account actions.
 struct ProfileView: View {
 
     @EnvironmentObject private var dataManager: DataManager
     @EnvironmentObject private var appState: AppState
+    @Environment(\.dismiss) private var dismiss
 
     @State private var activeAlert: ProfileAlert?
     @State private var isRequestingDeletion = false
@@ -14,74 +15,47 @@ struct ProfileView: View {
     @State private var profileEmailTitle = "Email"
     @State private var profileEmailValue = "Not logged in"
 
+    private let profileBlue = Color(red: 0.08, green: 0.43, blue: 0.91, opacity: 1)
+    private let cardColor = Color(uiColor: .secondarySystemGroupedBackground)
+
+    private var profileInitials: String {
+        let nameParts = profileName.split(whereSeparator: \.isWhitespace).filter { $0 != "-" }
+        guard let first = nameParts.first?.first else { return "AW" }
+
+        var initials = String(first).uppercased()
+        if nameParts.count > 1, let last = nameParts.last?.first {
+            initials += String(last).uppercased()
+        }
+        return initials
+    }
+
     var body: some View {
         ScrollView {
-            VStack(spacing: 16) {
-                ProfileInfoRow(
-                    title: profileEmailTitle,
-                    value: profileEmailValue,
-                    valueColor: Color(red: 0.114, green: 0.631, blue: 0.949, opacity: 1)
-                )
-                .coachMarkTarget("profile-email")
+            VStack(spacing: 0) {
+                navigationHeader
 
-                ProfileInfoRow(
-                    title: "Name",
-                    value: profileName,
-                    valueColor: Color(uiColor: .systemGray)
-                )
-                .coachMarkTarget("profile-name")
+                identityHeader
+                    .padding(.top, 28)
 
-                Button {
-                    activeAlert = .signOutConfirmation
-                } label: {
-                    Text("Sign Out")
-                        .frame(maxWidth: .infinity, minHeight: 36)
-                }
-                .buttonStyle(.bordered)
-                .frame(width: 176)
-                .tint(Color(uiColor: .systemRed))
-                .disabled(isRequestingDeletion)
-                .coachMarkTarget("profile-sign-out")
+                accountDetailsSection
+                    .padding(.top, 24)
 
-                Button {
-                    activeAlert = .deleteConfirmation
-                } label: {
-                    HStack(spacing: 8) {
-                        if isRequestingDeletion {
-                            ProgressView()
-                                .tint(Color(uiColor: .systemRed))
-                        }
-                        Text(isRequestingDeletion ? "Deleting..." : "Delete Account")
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 44)
-                }
-                .buttonStyle(.bordered)
-                .frame(width: 176)
-                .tint(Color(uiColor: .systemRed))
-                .disabled(isRequestingDeletion)
-                .accessibilityLabel("Delete Account")
-                .accessibilityHint("Permanently deletes your AirWhisper account and clears app data.")
-                .coachMarkTarget("profile-delete-account")
+                preferencesSection
+                    .padding(.top, 24)
 
-                Button("Reset to Default") {
-                    activeAlert = .resetConfirmation
-                }
-                .buttonStyle(.plain)
-                .frame(width: 176, height: 44)
-                .foregroundStyle(Color(uiColor: .systemBlue))
-                .coachMarkTarget("profile-reset-defaults")
+                signOutButton
+                    .padding(.top, 26)
 
-                Link("Learn more", destination: URL(string: "https://www.airwhisper.in/how-to-use")!)
-                    .buttonStyle(.plain)
-                    .frame(width: 176, height: 44)
-                    .foregroundStyle(Color(uiColor: .systemBlue))
+                deleteAccountButton
+                    .padding(.top, 12)
             }
-            .padding(.horizontal, Design.contentMargin)
-            .padding(.top, 40)
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, 20)
         }
+        .scrollIndicators(.hidden)
         .background(Design.groupedBackground.ignoresSafeArea())
-        .navigationTitle("User Profile")
-        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
         .coachMarkTour(
             screenKey: "profile",
             steps: [
@@ -135,6 +109,190 @@ struct ProfileView: View {
                 .environmentObject(appState)
         }
         .onAppear(perform: loadUserData)
+    }
+
+    private var navigationHeader: some View {
+        HStack {
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundStyle(.primary)
+                    .frame(width: 44, height: 44)
+                    .background(cardColor, in: Circle())
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Back")
+
+            Spacer()
+        }
+        .overlay {
+            Text("User Profile")
+                .font(.system(size: 20, weight: .bold))
+                .lineLimit(1)
+                .allowsHitTesting(false)
+        }
+        .frame(height: 48)
+    }
+
+    private var identityHeader: some View {
+        VStack(spacing: 8) {
+            Circle()
+                .fill(cardColor)
+                .frame(width: 92, height: 92)
+                .overlay {
+                    Circle()
+                        .fill(profileBlue)
+                        .frame(width: 84, height: 84)
+                        .overlay {
+                            Text(profileInitials)
+                                .font(.system(size: 30, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .accessibilityLabel("Profile initials \(profileInitials)")
+                        }
+                }
+                .shadow(color: .black.opacity(0.08), radius: 5, x: 0, y: 2)
+
+            Text(profileName)
+                .font(.system(size: 22, weight: .bold))
+                .foregroundStyle(.primary)
+                .coachMarkTarget("profile-name")
+
+            Text("Personal Account")
+                .font(.system(size: 16))
+                .foregroundStyle(Design.secondaryLabel)
+        }
+        .frame(maxWidth: .infinity)
+        .multilineTextAlignment(.center)
+    }
+
+    private var accountDetailsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionTitle("ACCOUNT DETAILS")
+
+            VStack(spacing: 0) {
+                ProfileAccountDetailRow(
+                    title: "Name",
+                    value: profileName,
+                    symbol: "person"
+                )
+
+                Divider()
+                    .padding(.leading, 66)
+
+                ProfileAccountDetailRow(
+                    title: profileEmailTitle,
+                    value: profileEmailValue,
+                    symbol: "envelope"
+                )
+                .coachMarkTarget("profile-email")
+            }
+            .background(cardColor, in: RoundedRectangle(cornerRadius: 22))
+        }
+    }
+
+    private var preferencesSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionTitle("PREFERENCES")
+
+            VStack(spacing: 0) {
+                Button {
+                    activeAlert = .resetConfirmation
+                } label: {
+                    HStack {
+                        Text("Reset to Default")
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(Color(uiColor: .tertiaryLabel))
+                    }
+                    .font(.system(size: 17))
+                    .padding(.horizontal, 16)
+                    .frame(height: 58)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .coachMarkTarget("profile-reset-defaults")
+
+                Divider()
+
+                Link(destination: URL(string: "https://www.airwhisper.in/how-to-use")!) {
+                    HStack {
+                        Text("Learn More")
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        Image(systemName: "arrow.up.right.square")
+                            .font(.system(size: 17, weight: .regular))
+                            .foregroundStyle(Color(uiColor: .secondaryLabel))
+                    }
+                    .font(.system(size: 17))
+                    .padding(.horizontal, 16)
+                    .frame(height: 58)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            .background(cardColor, in: RoundedRectangle(cornerRadius: 22))
+        }
+    }
+
+    private var signOutButton: some View {
+        Button {
+            activeAlert = .signOutConfirmation
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "rectangle.portrait.and.arrow.right")
+                    .font(.system(size: 18, weight: .semibold))
+                Text("Sign Out")
+                    .font(.system(size: 18, weight: .semibold))
+            }
+            .foregroundStyle(.primary)
+            .frame(maxWidth: .infinity)
+            .frame(height: 60)
+            .background(cardColor, in: RoundedRectangle(cornerRadius: 20))
+            .contentShape(RoundedRectangle(cornerRadius: 20))
+        }
+        .buttonStyle(.plain)
+        .disabled(isRequestingDeletion)
+        .coachMarkTarget("profile-sign-out")
+    }
+
+    private var deleteAccountButton: some View {
+        Button {
+            activeAlert = .deleteConfirmation
+        } label: {
+            HStack(spacing: 8) {
+                if isRequestingDeletion {
+                    ProgressView()
+                        .tint(Color(uiColor: .systemRed))
+                } else {
+                    Image(systemName: "trash")
+                        .font(.system(size: 17, weight: .semibold))
+                }
+                Text(isRequestingDeletion ? "Deleting..." : "Delete Account")
+                    .font(.system(size: 17))
+            }
+            .foregroundStyle(Color(uiColor: .systemRed))
+            .frame(maxWidth: .infinity)
+            .frame(height: 54)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(isRequestingDeletion)
+        .accessibilityLabel("Delete Account")
+        .accessibilityHint("Permanently deletes your AirWhisper account and clears app data.")
+        .coachMarkTarget("profile-delete-account")
+    }
+
+    private func sectionTitle(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 13, weight: .semibold))
+            .tracking(1.2)
+            .foregroundStyle(Color(uiColor: .systemGray2))
+            .padding(.leading, 8)
     }
 
     private func loadUserData() {
