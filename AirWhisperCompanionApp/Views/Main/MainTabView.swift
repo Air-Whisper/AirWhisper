@@ -40,10 +40,6 @@ struct MainTabView: View {
                     }
                     .tag(MainTab.people)
                 }
-                .toolbar(.hidden, for: .tabBar)
-                .safeAreaInset(edge: .bottom, spacing: 0) {
-                    bottomNavigationBar
-                }
 
                 if let activeStep = coachMarkManager.activeStep {
                     CoachMarkTourOverlay(
@@ -65,49 +61,6 @@ struct MainTabView: View {
             .environmentObject(appState)
             .environmentObject(coachMarkManager)
         }
-    }
-
-    private var bottomNavigationBar: some View {
-        HStack(spacing: 6) {
-            tabButton(.home, title: "Home", symbol: "house.fill")
-            tabButton(.people, title: "My People", symbol: "person.2.fill")
-        }
-        .padding(6)
-        .frame(width: 230, height: 66)
-        .background(Color(uiColor: .secondarySystemGroupedBackground), in: Capsule())
-        .shadow(color: .black.opacity(0.10), radius: 12, x: 0, y: 5)
-        .frame(maxWidth: .infinity)
-        .padding(.top, 8)
-        .padding(.bottom, 6)
-        .background(Design.groupedBackground)
-    }
-
-    private func tabButton(_ tab: MainTab, title: String, symbol: String) -> some View {
-        let isSelected = selectedTab == tab
-        return Button {
-            selectedTab = tab
-        } label: {
-            HStack(spacing: 7) {
-                Image(systemName: symbol)
-                    .font(.system(size: 17, weight: .semibold))
-                Text(title)
-                    .font(.system(size: 15, weight: isSelected ? .semibold : .regular))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.85)
-            }
-            .foregroundStyle(isSelected ? Color(uiColor: .systemBlue) : Color(uiColor: .secondaryLabel))
-            .frame(maxWidth: .infinity)
-            .frame(height: 52)
-            .background {
-                if isSelected {
-                    Capsule()
-                        .fill(Color(uiColor: .systemBlue).opacity(0.08))
-                }
-            }
-            .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(isSelected ? "\(title), selected" : title)
     }
 
     @ViewBuilder
