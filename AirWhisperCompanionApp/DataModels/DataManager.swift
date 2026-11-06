@@ -1,6 +1,7 @@
 import Foundation
+import Combine
 
-final class DataManager {
+final class DataManager: ObservableObject {
     static let shared = DataManager()
     private let storage = StorageManager.shared
     private let watch = WatchConnectivityManager.shared
@@ -9,12 +10,15 @@ final class DataManager {
 
     private init() {}
 
-    private(set) var currentUser: User? // the current user profile, if any. readable globally but writable locally.
+    // Published mirrors expose the same caches to SwiftUI views.
+    @Published private(set) var currentUser: User? // the current user profile, if any. readable globally but writable locally.
 
-    private var myPeople: [MyPeople] = []
-    private var quickPhrases: [QuickPhrase] = []
-    private var watchSettings: WatchSettings?
-    private var messageHistory: [MessageHistory] = []
+    @Published private(set) var myPeople: [MyPeople] = []
+    @Published private(set) var quickPhrases: [QuickPhrase] = []
+    private(set) var phraseOrderRevision = 0
+    private(set) var phraseActivityRevision = 0
+    @Published private(set) var watchSettings: WatchSettings?
+    @Published private(set) var messageHistory: [MessageHistory] = []
     // cache the personalisation meta for the user to constantly hitting UserDefaults.
 
 
@@ -88,13 +92,14 @@ final class DataManager {
             _ = loadSavedData()
         } else {
             // Try to load any existing data (e.g. from iCloud restore)
-            let existingPhrases: [QuickPhrase]? = storage.load(forKey: StorageManager.Keys.phrases)
+            let existingPhrases = loadQuickPhrases()
 
             if existingPhrases != nil {
                 _ = loadSavedData()
             } else {
                 self.myPeople = []
                 self.quickPhrases = QuickPhrase.defaultPhrases()
+                loadPhraseRevisions()
                 self.watchSettings = WatchSettings()
                 self.messageHistory = []
 
@@ -111,7 +116,8 @@ final class DataManager {
 
     func loadSavedData() -> Bool {
         self.myPeople = storage.load(forKey: StorageManager.Keys.contacts) ?? []
-        self.quickPhrases = storage.load(forKey: StorageManager.Keys.phrases) ?? QuickPhrase.defaultPhrases()
+        self.quickPhrases = loadQuickPhrases() ?? QuickPhrase.defaultPhrases()
+        loadPhraseRevisions()
         let sensitivity = storage.loadFloat(forKey: StorageManager.Keys.settingsSensitivity) ?? WatchSettings.defaultValue
         let voiceGuidance = storage.loadBool(forKey: StorageManager.Keys.settingsVoiceGuidance)
         let tapDetectorEnabled = storage.loadBool(forKey: StorageManager.Keys.settingsTapDetectorEnabled)
@@ -258,6 +264,33 @@ final class DataManager {
     }
     // Returns phrase items with useCount for syncing to Watch.
 
+    func reorderQuickPhrases(_ orderedPhrases: [QuickPhrase]) {
+        let currentIDs = Set(quickPhrases.map(\.id))
+        let orderedIDs = orderedPhrases.map(\.id)
+        guard orderedIDs.count == quickPhrases.count,
+              Set(orderedIDs).count == orderedIDs.count,
+              Set(orderedIDs) == currentIDs else { return }
+
+        let reordered = orderedIDs.compactMap { id in
+            quickPhrases.first(where: { $0.id == id })
+        }
+        let isHelp: (QuickPhrase) -> Bool = {
+            $0.text.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() == "HELP"
+        }
+        let helpPhrase = reordered.first(where: isHelp)
+        var updated = reordered.filter { !isHelp($0) }
+        if let helpPhrase {
+            updated.insert(helpPhrase, at: 0)
+        }
+        quickPhrases = updated.map { phrase in
+            var phrase = phrase
+            phrase.useCount = 0
+            return phrase
+        }
+        savePhrases()
+    }
+    // An iPhone reorder becomes the new Watch usage-order baseline.
+
     static let maxPhrases = 10 // Maximum number of quick phrases allowed.
 
     
@@ -277,38 +310,71 @@ final class DataManager {
     // Adds a phrase only if no existing phrase matches (case-insensitive).
     // Enforces 10-phrase cap,replaces least-used if full.
 
-    func replaceQuickPhrasesFromWatch(_ items: [AWPhraseItem]) {
+    func replaceQuickPhrasesFromWatch(
+        _ items: [AWPhraseItem],
+        orderRevision: Int,
+        activityRevision: Int
+    ) {
+        guard orderRevision > phraseOrderRevision ||
+                (orderRevision == phraseOrderRevision && activityRevision >= phraseActivityRevision) else {
+            return
+        }
+
+        phraseOrderRevision = orderRevision
+        phraseActivityRevision = activityRevision
+
+        quickPhrases = makeQuickPhrases(from: items)
+        savePhrases(syncToWatch: false)
+        NotificationCenter.default.post(name: .dataDidChangeRemotely, object: nil)
+    }
+    // replacing the phrase list with the one recieved from watch and saving it.
+
+    private func loadQuickPhrases() -> [QuickPhrase]? {
+        if let phrases: [QuickPhrase] = storage.load(forKey: StorageManager.Keys.phrases) {
+            return phrases
+        }
+        if let snapshot: AWPhraseSyncPayload = storage.load(forKey: StorageManager.Keys.phrases) {
+            return makeQuickPhrases(from: snapshot.phraseItems)
+        }
+        if let watchItems: [AWPhraseItem] = storage.load(forKey: StorageManager.Keys.phrases) {
+            return makeQuickPhrases(from: watchItems)
+        }
+        return nil
+    }
+
+    private func loadPhraseRevisions() {
+        let snapshot: AWPhraseSyncPayload? = storage.load(forKey: StorageManager.Keys.phrases)
+        phraseOrderRevision = snapshot?.orderRevision
+            ?? storage.load(forKey: StorageManager.Keys.phraseOrderRevision)
+            ?? 0
+        phraseActivityRevision = snapshot?.activityRevision
+            ?? storage.load(forKey: StorageManager.Keys.phraseActivityRevision)
+            ?? 0
+    }
+
+    private func makeQuickPhrases(from items: [AWPhraseItem]) -> [QuickPhrase] {
         var seen: Set<String> = []
-        var newPhrases: [QuickPhrase] = []
+        var phrases: [QuickPhrase] = []
         var helpItem: AWPhraseItem?
 
         for item in items {
             let normalized = item.text.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !normalized.isEmpty else { continue }
             let key = normalized.uppercased()
-            guard !seen.contains(key) else { continue }
-            seen.insert(key)
+            guard seen.insert(key).inserted else { continue }
             if key == "HELP" {
                 helpItem = item
             } else {
-                newPhrases.append(QuickPhrase(text: normalized, useCount: item.useCount))
+                phrases.append(QuickPhrase(text: normalized, useCount: item.useCount))
             }
         }
 
-        // Help should always be present and at index 0
-        let finalHelpCount = helpItem?.useCount ?? 0
-        newPhrases.insert(QuickPhrase(text: "HELP", isDefault: true, useCount: finalHelpCount), at: 0)
-
-        // Enforce limit
-        if newPhrases.count > Self.maxPhrases {
-            newPhrases = Array(newPhrases.prefix(Self.maxPhrases))
-        }
-
-        quickPhrases = newPhrases
-        savePhrases(syncToWatch: false)
-        NotificationCenter.default.post(name: .dataDidChangeRemotely, object: nil)
+        phrases.insert(
+            QuickPhrase(text: "HELP", isDefault: true, useCount: helpItem?.useCount ?? 0),
+            at: 0
+        )
+        return Array(phrases.prefix(Self.maxPhrases))
     }
-    // replacing the phrase list with the one recieved from watch and saving it.
 
     func removeQuickPhrase(at index: Int) {
         guard index >= 0 && index < quickPhrases.count else { return }
@@ -406,9 +472,32 @@ final class DataManager {
     // Saves the current contacts to UserDefaults and syncs them to the Watch.
 
     private func savePhrases(syncToWatch: Bool = true) {
-        storage.save(quickPhrases, forKey: StorageManager.Keys.phrases)
         if syncToWatch {
-            watch.sendPhrases(getQuickPhraseItems())
+            let currentTimeRevision = Int(Date().timeIntervalSince1970 * 1_000)
+            phraseOrderRevision = max(phraseOrderRevision + 1, currentTimeRevision)
+            phraseActivityRevision = 0
+        }
+
+        let phraseItems = getQuickPhraseItems()
+        let cloudSnapshot = AWPhraseSyncPayload(
+            type: .phraseSync,
+            phraseItems: phraseItems,
+            orderRevision: phraseOrderRevision,
+            activityRevision: phraseActivityRevision
+        )
+        storage.save(
+            quickPhrases,
+            cloudValue: cloudSnapshot,
+            forKey: StorageManager.Keys.phrases
+        )
+        storage.saveLocal(phraseOrderRevision, forKey: StorageManager.Keys.phraseOrderRevision)
+        storage.saveLocal(phraseActivityRevision, forKey: StorageManager.Keys.phraseActivityRevision)
+        if syncToWatch {
+            watch.sendPhrases(
+                phraseItems,
+                orderRevision: phraseOrderRevision,
+                activityRevision: phraseActivityRevision
+            )
         }
     }
     // Saves the current quick phrases to UserDefaults and optionally syncs them to the Watch.

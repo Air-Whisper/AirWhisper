@@ -38,6 +38,8 @@ final class StorageManager {
         static let appleUserIdentifier = "appleUserIdentifier"
         static let contacts = "contacts"
         static let phrases = "phrases"
+        static let phraseOrderRevision = "phraseOrderRevision"
+        static let phraseActivityRevision = "phraseActivityRevision"
         static let settingsSensitivity = "settings_sensitivity"
         static let settingsVoiceGuidance = "settings_voiceGuidance"
         static let settingsTapDetectorEnabled = "settings_tapDetectorEnabled"
@@ -132,7 +134,7 @@ final class StorageManager {
         guard isAppleIDSession else { return }
         let allKeys = [
             Keys.userName, Keys.userEmail, Keys.appleUserIdentifier,
-            Keys.contacts, Keys.phrases,
+            Keys.contacts, Keys.phrases, Keys.phraseOrderRevision, Keys.phraseActivityRevision,
             Keys.settingsSensitivity, Keys.settingsVoiceGuidance, Keys.settingsTapDetectorEnabled,
             Keys.settingsTapDownwardThreshold, Keys.settingsTapUpwardThreshold, Keys.settingsTapDoubleTapTiming,
             Keys.messageHistory
@@ -156,6 +158,32 @@ final class StorageManager {
         }
     }
     // Generic save function that encodes any Codable type to both UserDefaults and iCloud KVS
+
+    func save<T: Encodable, CloudValue: Encodable>(
+        _ value: T,
+        cloudValue: CloudValue,
+        forKey key: String
+    ) {
+        do {
+            let localData = try JSONEncoder().encode(value)
+            localDefaults.set(localData, forKey: key)
+
+            if isAppleIDSession {
+                let cloudData = try JSONEncoder().encode(cloudValue)
+                cloudDefaults.set(cloudData, forKey: key)
+            }
+        } catch {
+            print("[Storage] Failed to encode \(key): \(error)")
+        }
+    }
+
+    func saveLocal<T: Encodable>(_ value: T, forKey key: String) {
+        do {
+            localDefaults.set(try JSONEncoder().encode(value), forKey: key)
+        } catch {
+            print("[Storage] Failed to encode \(key): \(error)")
+        }
+    }
 
     func load<T: Decodable>(forKey key: String) -> T? {
         let source: Data?
@@ -250,7 +278,7 @@ final class StorageManager {
 
     private let dataKeys = [
         Keys.userName, Keys.userEmail, Keys.appleUserIdentifier,
-        Keys.contacts, Keys.phrases,
+        Keys.contacts, Keys.phrases, Keys.phraseOrderRevision, Keys.phraseActivityRevision,
         Keys.settingsSensitivity, Keys.settingsVoiceGuidance, Keys.settingsTapDetectorEnabled,
         Keys.settingsTapDownwardThreshold, Keys.settingsTapUpwardThreshold, Keys.settingsTapDoubleTapTiming,
         Keys.messageHistory
