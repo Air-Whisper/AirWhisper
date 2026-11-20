@@ -139,6 +139,7 @@ struct ActionRequiredView: View // Displays actions after a user composes text v
     }
 
     private func executeSpeakAloud() {
+        VoiceGuidanceManager.shared.stop()
         SpeechService.shared.speak(text)
         if isFromQuickPhrase {
             // Do NOT call markPhraseUsed here  - defer to onDisappear to avoid

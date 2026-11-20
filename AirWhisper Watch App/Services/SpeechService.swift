@@ -22,6 +22,8 @@ final class SpeechService {
         
         let utterance = AVSpeechUtterance(string: trimmed) // create a speech request.
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate // set the speech rate to the default value for a natural speaking pace.
+
+        AudioSessionManager.shared.configure(for: .phrase)
         synthesizer.speak(utterance)
     }
     
