@@ -265,6 +265,11 @@ final class StorageManager {
     }
     // Checks if a user profile exists locally by looking for the presence of a username in UserDefaults
 
+    func remove(forKey key: String) {
+        localDefaults.removeObject(forKey: key)
+        if isAppleIDSession { cloudDefaults.removeObject(forKey: key) }
+    }
+
     func clearAll(deleteCloudData: Bool = false) {
         let allKeys = dataKeys
         for key in allKeys {

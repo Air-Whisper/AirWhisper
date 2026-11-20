@@ -48,6 +48,16 @@ final class PhraseManager: ObservableObject {
         loadPhrases()
         startObservingCloudChanges()
     }// private because we want only one instance, maintain singleton pattern.
+
+    /// Every local change advances the same wall-clock version the iPhone uses,
+    /// so revisions from either device can be compared directly. Without this,
+    /// a Watch-added phrase was sent with the iPhone's older orderRevision and
+    /// got rejected by the companion as stale.
+    private func bumpLocalRevision() {
+        let now = Int(Date().timeIntervalSince1970 * 1_000)
+        orderRevision = max(orderRevision + 1, now)
+        activityRevision = 0
+    }
     
 
     // load saved phrases from UserDefaults, falling back to iCloud if local is empty.
@@ -146,8 +156,8 @@ final class PhraseManager: ObservableObject {
         if let helpPhrase {
             phrases.insert(helpPhrase, at: 0)
         }
-        activityRevision += 1
-        
+        bumpLocalRevision()
+
         savePhrases()
         objectWillChange.send()
         
@@ -176,7 +186,7 @@ final class PhraseManager: ObservableObject {
             phrases.append(WatchPhrase(text: trimmed))
         }
         
-        activityRevision += 1
+        bumpLocalRevision()
         savePhrases()
         syncPhrasesToiPhone()
         return true
@@ -188,7 +198,7 @@ final class PhraseManager: ObservableObject {
         let target = phrases[index]
         if target.text.uppercased() == "HELP" { return } // Protect Help
         phrases.remove(at: index)
-        activityRevision += 1
+        bumpLocalRevision()
         savePhrases()
         syncPhrasesToiPhone()
     }
@@ -198,7 +208,7 @@ final class PhraseManager: ObservableObject {
         let key = phrase.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         if key == "HELP" { return } // Protect Help
         phrases.removeAll { $0.text.uppercased() == key }
-        activityRevision += 1
+        bumpLocalRevision()
         savePhrases()
         syncPhrasesToiPhone()
     }

@@ -13,6 +13,7 @@ struct HomeView: View {
     @State private var carouselPage = 0
     @State private var isLoadingSettings = false
     @State private var settingsSyncTask: Task<Void, Never>?
+    @State private var showRecalibrateAlert = false
 
     private let settingsSyncDebounceInterval: TimeInterval = 0.3
 
@@ -107,6 +108,14 @@ struct HomeView: View {
             flushPendingSettingsSync()
         }
         .toolbar(.hidden, for: .navigationBar)
+        .alert("Recalibrate", isPresented: $showRecalibrateAlert) {
+            Button("Confirm") {
+                dataManager.resetTapCalibration()
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This will reset your previously set threshold for Tap Detection")
+        }
     }
 
     private var header: some View {
@@ -289,16 +298,22 @@ struct HomeView: View {
                     settingsControlChanged()
                 }
 
-                NavigationLink(value: MainNavigationDestination.profile) {
+                Link(destination: URL(string: "airwhisper://recalibrate")!) {
                     (Text("Recalibrate")
                         .foregroundColor(Color(uiColor: .systemBlue))
                         .underline()
-                     + Text(" tap detection from your profile")
+                     + Text(" tap detection")
                         .foregroundColor(Color(uiColor: .systemGray)))
                         .font(.system(size: 13))
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .buttonStyle(.plain)
+                .environment(\.openURL, OpenURLAction { _ in
+                    showRecalibrateAlert = true
+                    return .handled
+                })
+                .onTapGesture {
+                    showRecalibrateAlert = true
+                }
                 .padding(.top, 4)
             }
             .padding(16)

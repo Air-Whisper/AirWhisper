@@ -109,6 +109,9 @@ struct QuickSpeakView: View {
                 setupTapDetector()
             }
         }
+        .onChange(of: connectivity.calibrationResetTrigger) { _, _ in
+            showCalibration = true
+        }
     }
     
     private func setupTapDetector() {

@@ -14,6 +14,9 @@ final class WatchConnectivityClient: NSObject, ObservableObject {
     @Published private(set) var hasReceivedInitialCompanionSync: Bool
     @Published private(set) var isReachable: Bool = false
     @Published private(set) var receivedPhrases: [String] = []
+    /// Incremented when the companion asks for a fresh tap calibration so the
+    /// visible Quick Speak screen can open the calibration flow immediately.
+    @Published private(set) var calibrationResetTrigger = 0
     @Published private(set) var receivedContacts: [AWContact] = []
     @Published private(set) var receivedSensitivity: Float?
     @Published private(set) var receivedVoiceGuidance: Bool = false
@@ -142,14 +145,15 @@ final class WatchConnectivityClient: NSObject, ObservableObject {
 
         case .phraseSync:
             guard let phrasePayload = try? decoder.decode(AWPhraseSyncPayload.self, from: data) else { return }
-            let items = phrasePayload.phraseItems
-            guard PhraseManager.shared.syncPhrasesFromiPhone(
-                items,
+            _ = PhraseManager.shared.syncPhrasesFromiPhone(
+                phrasePayload.phraseItems,
                 orderRevision: phrasePayload.orderRevision,
                 activityRevision: phrasePayload.activityRevision
-            ) else { return }
+            )
+            // A rejected (stale) phrase payload must never leave the Watch stuck
+            // in "waiting for initial sync" or hide the phrase list.
             markInitialCompanionSyncReceived()
-            receivedPhrases = items.map { $0.text }
+            receivedPhrases = PhraseManager.shared.allPhrases
 
         case .settingsSync:
             guard let settingsPayload = try? decoder.decode(AWSettingsSyncPayload.self, from: data) else { return }
@@ -188,6 +192,7 @@ final class WatchConnectivityClient: NSObject, ObservableObject {
 
         case .calibrationReset:
             SurfaceTapDetector.shared.resetCalibration()
+            calibrationResetTrigger += 1
 
         case .sessionReset:
             wasAccountDeleted = false

@@ -445,6 +445,20 @@ final class DataManager: ObservableObject {
     }
     // Resets watch settings and quick phrases to factory defaults, then clears tap calibration on the Watch.
 
+    /// Clears only the learned tap-detection thresholds. Sensitivity, voice
+    /// guidance, the tap-detector toggle and quick phrases are left intact.
+    func resetTapCalibration() {
+        watchSettings?.tapDownwardThreshold = nil
+        watchSettings?.tapUpwardThreshold = nil
+        watchSettings?.tapDoubleTapTiming = nil
+
+        storage.remove(forKey: StorageManager.Keys.settingsTapDownwardThreshold)
+        storage.remove(forKey: StorageManager.Keys.settingsTapUpwardThreshold)
+        storage.remove(forKey: StorageManager.Keys.settingsTapDoubleTapTiming)
+
+        watch.sendCalibrationReset()
+    }
+
     func addMessage(_ message: MessageHistory) {
         messageHistory.append(message)
         saveHistory()
