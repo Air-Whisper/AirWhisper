@@ -17,6 +17,9 @@ final class WatchConnectivityClient: NSObject, ObservableObject {
     /// Incremented when the companion asks for a fresh tap calibration so the
     /// visible Quick Speak screen can open the calibration flow immediately.
     @Published private(set) var calibrationResetTrigger = 0
+    /// Incremented on a plain Reset to Default so an in-progress calibration
+    /// view is dismissed instead of being left on screen.
+    @Published private(set) var calibrationCancelledTrigger = 0
     @Published private(set) var receivedContacts: [AWContact] = []
     @Published private(set) var receivedSensitivity: Float?
     @Published private(set) var receivedVoiceGuidance: Bool = false
@@ -194,6 +197,8 @@ final class WatchConnectivityClient: NSObject, ObservableObject {
             // Reset to Default: clear the learned thresholds only. The Watch
             // asks for calibration later, when tap detector is re-enabled.
             SurfaceTapDetector.shared.resetCalibration()
+            SurfaceTapDetector.shared.cancelCalibration()
+            calibrationCancelledTrigger += 1
 
         case .recalibrationRequested:
             // Recalibrate link confirmed: clear thresholds and open calibration.
