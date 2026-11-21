@@ -14,6 +14,7 @@ enum AWPayloadType: String, Codable, Equatable {
     case setupStatusRequest
     case setupStatusResponse
     case calibrationReset
+    case recalibrationRequested
     case calibrationSync
 }
 

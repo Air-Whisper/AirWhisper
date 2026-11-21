@@ -191,6 +191,12 @@ final class WatchConnectivityClient: NSObject, ObservableObject {
             UserDefaults.standard.set(jwt.accessToken, forKey: "watchJWTToken")
 
         case .calibrationReset:
+            // Reset to Default: clear the learned thresholds only. The Watch
+            // asks for calibration later, when tap detector is re-enabled.
+            SurfaceTapDetector.shared.resetCalibration()
+
+        case .recalibrationRequested:
+            // Recalibrate link confirmed: clear thresholds and open calibration.
             SurfaceTapDetector.shared.resetCalibration()
             calibrationResetTrigger += 1
 

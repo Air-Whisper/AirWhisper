@@ -456,7 +456,7 @@ final class DataManager: ObservableObject {
         storage.remove(forKey: StorageManager.Keys.settingsTapUpwardThreshold)
         storage.remove(forKey: StorageManager.Keys.settingsTapDoubleTapTiming)
 
-        watch.sendCalibrationReset()
+        watch.sendRecalibrationRequest()
     }
 
     func addMessage(_ message: MessageHistory) {

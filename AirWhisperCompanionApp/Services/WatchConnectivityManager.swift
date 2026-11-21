@@ -405,6 +405,20 @@ extension WatchConnectivityManager: WCSessionDelegate {
         sendDataPayload(data, via: sess)
     }
 
+    /// Sent by the Recalibrate link: clears the thresholds AND opens the
+    /// calibration screen on the Watch (unlike a plain Reset to Default).
+    func sendRecalibrationRequest() {
+        guard WCSession.isSupported() else { return }
+
+        let payload = AWCalibrationResetPayload(type: .recalibrationRequested)
+        guard let data = try? JSONEncoder().encode(payload) else { return }
+
+        let sess = session ?? WCSession.default
+        guard sess.activationState == .activated else { return }
+
+        sendDataPayload(data, via: sess)
+    }
+
     func sendStoredJWTTokenIfAvailable() {
         guard StorageManager.shared.hasValidSession(),
               let token = StorageManager.shared.loadAccessToken() else {
