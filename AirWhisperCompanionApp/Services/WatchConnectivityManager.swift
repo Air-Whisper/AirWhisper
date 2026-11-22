@@ -1,7 +1,12 @@
 import Foundation
 import WatchConnectivity
+import Combine
 
-final class WatchConnectivityManager: NSObject  { // NSObject lets us use WCSessionDelegate which is an onjective c based protocol. This class is the central hub for all WatchConnectivity interactions on the iPhone side.
+final class WatchConnectivityManager: NSObject, ObservableObject  { // NSObject lets us use WCSessionDelegate which is an onjective c based protocol. This class is the central hub for all WatchConnectivity interactions on the iPhone side.
+
+    /// Bumped whenever connection status changes so SwiftUI views can observe
+    /// the same events the old "WatchConnectionStatusChanged" notification carried.
+    @Published private(set) var connectionRevision: Int = 0
 
     static let shared = WatchConnectivityManager()
 
@@ -11,6 +16,8 @@ final class WatchConnectivityManager: NSObject  { // NSObject lets us use WCSess
     private let decoder = JSONDecoder()
     private var queuedContacts: [MyPeople]?
     private var queuedPhraseItems: [AWPhraseItem]?
+    private var queuedPhraseOrderRevision = 0
+    private var queuedPhraseActivityRevision = 0
     private var queuedSettings: WatchSettings?
     private var queuedJWTToken: String?
     private var queuedSessionReset = false
@@ -69,9 +76,15 @@ final class WatchConnectivityManager: NSObject  { // NSObject lets us use WCSess
         // encoding to binary to make contacts suitable for transmission.
     }
 
-    func sendPhrases(_ items: [AWPhraseItem]) {
+    func sendPhrases(
+        _ items: [AWPhraseItem],
+        orderRevision: Int = 0,
+        activityRevision: Int = 0
+    ) {
         guard let session = session else {
             queuedPhraseItems = items
+            queuedPhraseOrderRevision = orderRevision
+            queuedPhraseActivityRevision = activityRevision
             print("[WatchConnectivity] Session unavailable, queued phrase items")
             return
         }
@@ -79,13 +92,20 @@ final class WatchConnectivityManager: NSObject  { // NSObject lets us use WCSess
 
         guard session.activationState == .activated else {
             queuedPhraseItems = items
+            queuedPhraseOrderRevision = orderRevision
+            queuedPhraseActivityRevision = activityRevision
             print("[WatchConnectivity] Session not activated, queued phrase items")
             return
         }
         // to check if the session is activated.
 
         let uppercasedItems = items.map { AWPhraseItem(text: $0.text.uppercased(), useCount: $0.useCount) }
-        let payload = AWPhraseSyncPayload(type: .phraseSync, phraseItems: uppercasedItems)
+        let payload = AWPhraseSyncPayload(
+            type: .phraseSync,
+            phraseItems: uppercasedItems,
+            orderRevision: orderRevision,
+            activityRevision: activityRevision
+        )
         // creating a payload with the uppercased phrase items, as the watch app expects them in uppercase for consistency and display purposes.
         do {
             let data = try encoder.encode(payload)
@@ -140,7 +160,11 @@ final class WatchConnectivityManager: NSObject  { // NSObject lets us use WCSess
         } // if there are any queued contacts, send them now that the session is active.
 
         if let phraseItems = queuedPhraseItems {
-            sendPhrases(phraseItems)
+            sendPhrases(
+                phraseItems,
+                orderRevision: queuedPhraseOrderRevision,
+                activityRevision: queuedPhraseActivityRevision
+            )
         } // if there are any queued phrase items, send them now that the session is active.
 
         if let settings = queuedSettings {
@@ -170,6 +194,7 @@ extension WatchConnectivityManager: WCSessionDelegate {
 
         DispatchQueue.main.async {
             NotificationCenter.default.post(name: Notification.Name("WatchConnectionStatusChanged"), object: nil)
+            self.connectionRevision += 1
             self.flushPendingPayloads(via: session)
             self.syncAllDataToWatch()
             self.sendStoredJWTTokenIfAvailable()
@@ -241,11 +266,22 @@ extension WatchConnectivityManager: WCSessionDelegate {
         case .setupStatusRequest:
             sendSetupStatusReply(reply)
 
+        case .phraseSyncRequest:
+            // Watch asked for the full list (e.g. right after install/reset).
+            // Re-send with a freshly bumped revision so the Watch accepts it.
+            DispatchQueue.main.async {
+                DataManager.shared.resyncPhrasesToWatch()
+            }
+
         case .phraseSync:
             guard let phrasePayload = try? decoder.decode(AWPhraseSyncPayload.self, from: data) else { return }
             DispatchQueue.main.async {
                 let items = phrasePayload.phraseItems
-                DataManager.shared.replaceQuickPhrasesFromWatch(items)
+                DataManager.shared.replaceQuickPhrasesFromWatch(
+                    items,
+                    orderRevision: phrasePayload.orderRevision ?? 0,
+                    activityRevision: phrasePayload.activityRevision ?? 0
+                )
             }
 
         case .messageHistory:
@@ -260,18 +296,6 @@ extension WatchConnectivityManager: WCSessionDelegate {
                     up: calPayload.upwardThreshold,
                     timing: calPayload.doubleTapTiming
                 )
-            }
-        
-        case .jwtRefreshRequest:
-            print("[WatchConnectivity] Watch requested a token refresh!")
-            Task {
-                do {
-                    // This calls the backend, gets a new token, saves it to Keychain,
-                    // and automatically calls sendJWTToken() to push it back to the watch.
-                    _ = try await AuthService.refreshAccessToken()
-                } catch {
-                    print("[WatchConnectivity] Failed to refresh token for watch: \(error)")
-                }
             }
 
         default:
@@ -388,6 +412,20 @@ extension WatchConnectivityManager: WCSessionDelegate {
         sendDataPayload(data, via: sess)
     }
 
+    /// Sent by the Recalibrate link: clears the thresholds AND opens the
+    /// calibration screen on the Watch (unlike a plain Reset to Default).
+    func sendRecalibrationRequest() {
+        guard WCSession.isSupported() else { return }
+
+        let payload = AWCalibrationResetPayload(type: .recalibrationRequested)
+        guard let data = try? JSONEncoder().encode(payload) else { return }
+
+        let sess = session ?? WCSession.default
+        guard sess.activationState == .activated else { return }
+
+        sendDataPayload(data, via: sess)
+    }
+
     func sendStoredJWTTokenIfAvailable() {
         guard StorageManager.shared.hasValidSession(),
               let token = StorageManager.shared.loadAccessToken() else {
@@ -409,7 +447,11 @@ extension WatchConnectivityManager: WCSessionDelegate {
         let settings = DataManager.shared.getWatchSettings()
 
         sendContacts(contacts)
-        sendPhrases(phraseItems)
+        sendPhrases(
+            phraseItems,
+            orderRevision: DataManager.shared.phraseOrderRevision,
+            activityRevision: DataManager.shared.phraseActivityRevision
+        )
         if let s = settings {
             sendSettings(s)
         }

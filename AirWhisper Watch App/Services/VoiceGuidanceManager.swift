@@ -22,9 +22,7 @@ final class VoiceGuidanceManager: NSObject, ObservableObject, AVSpeechSynthesize
             guard oldValue != isEnabled else { return }
             
             UserDefaults.standard.set(isEnabled, forKey: "isVoiceGuidanceEnabled")
-            // When toggled on, we need to ensure the audio session is ready
             if isEnabled {
-                configureAudioSession()
                 speak("Voice guidance enabled")
             } else {
                 synthesizer.stopSpeaking(at: .immediate)
@@ -33,7 +31,6 @@ final class VoiceGuidanceManager: NSObject, ObservableObject, AVSpeechSynthesize
     }
     
     private let synthesizer = AVSpeechSynthesizer()
-    private var isAudioSessionConfigured = false
     private var currentPriority: Priority?
     private var currentText: String?
     private var lastSpokenText: String?
@@ -44,23 +41,13 @@ final class VoiceGuidanceManager: NSObject, ObservableObject, AVSpeechSynthesize
         self.isEnabled = UserDefaults.standard.bool(forKey: "isVoiceGuidanceEnabled")
         super.init()
         synthesizer.delegate = self
-        if isEnabled {
-            configureAudioSession()
-        }
     }
-    
-    /// Configures the AVAudioSession for playback so the Watch speaker can be used.
-    private func configureAudioSession() {
-        guard !isAudioSessionConfigured else { return }
-        do {
-            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .voicePrompt, options: .duckOthers)
-            try AVAudioSession.sharedInstance().setActive(true)
-            isAudioSessionConfigured = true
-        } catch {
-            print("VoiceGuidanceManager: Failed to configure audio session: \(error.localizedDescription)")
-        }
+
+    /// Stops any in-flight guidance so "Speak Aloud" can take over the route.
+    func stop() {
+        synthesizer.stopSpeaking(at: .immediate)
     }
-    
+
     /// Speaks the given text if voice guidance is enabled.
     /// Cancels any currently speaking text immediately.
     func speak(_ text: String, priority: Priority = .action, interrupt: Bool? = nil) {
@@ -116,6 +103,8 @@ final class VoiceGuidanceManager: NSObject, ObservableObject, AVSpeechSynthesize
         currentText = trimmed
         lastSpokenText = trimmed
         lastSpokenAt = now
+
+        AudioSessionManager.shared.configure(for: .guidance)
         synthesizer.speak(utterance)
     }
     

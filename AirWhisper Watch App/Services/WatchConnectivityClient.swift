@@ -14,12 +14,17 @@ final class WatchConnectivityClient: NSObject, ObservableObject {
     @Published private(set) var hasReceivedInitialCompanionSync: Bool
     @Published private(set) var isReachable: Bool = false
     @Published private(set) var receivedPhrases: [String] = []
+    /// Incremented when the companion asks for a fresh tap calibration so the
+    /// visible Quick Speak screen can open the calibration flow immediately.
+    @Published private(set) var calibrationResetTrigger = 0
+    /// Incremented on a plain Reset to Default so an in-progress calibration
+    /// view is dismissed instead of being left on screen.
+    @Published private(set) var calibrationCancelledTrigger = 0
     @Published private(set) var receivedContacts: [AWContact] = []
     @Published private(set) var receivedSensitivity: Float?
     @Published private(set) var receivedVoiceGuidance: Bool = false
     @Published private(set) var receivedTapDetectorEnabled: Bool = false
     @Published private(set) var wasAccountDeleted: Bool
-    @Published private(set) var currentAccessToken: String?
 
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
@@ -39,7 +44,6 @@ final class WatchConnectivityClient: NSObject, ObservableObject {
         wasAccountDeleted = UserDefaults.standard.bool(forKey: accountDeletedKey)
         super.init()
 
-        currentAccessToken = UserDefaults.standard.string(forKey: "watchJWTToken")
         guard WCSession.isSupported() else { return }
         let session = WCSession.default
         session.delegate = self
@@ -78,10 +82,19 @@ final class WatchConnectivityClient: NSObject, ObservableObject {
         let session = WCSession.default
         refreshState(from: session)
         requestCompanionSetupStatusIfPossible(via: session)
+        requestFullPhraseSyncIfPossible(via: session)
     }
 
     func sendPhraseSync(_ payload: AWPhraseSyncPayload) {
         send(payload)
+    }
+
+    /// Ask the companion for the complete phrase list with a fresh revision.
+    /// Used on launch/activation so a freshly installed Watch is never left
+    /// with an empty or stale local cache.
+    private func requestFullPhraseSyncIfPossible(via session: WCSession) {
+        guard session.activationState == .activated, session.isCompanionAppInstalled else { return }
+        send(AWPhraseSyncRequestPayload(type: .phraseSyncRequest))
     }
 
     func sendCalibration(down: Double, up: Double, timing: TimeInterval) {
@@ -144,10 +157,19 @@ final class WatchConnectivityClient: NSObject, ObservableObject {
 
         case .phraseSync:
             guard let phrasePayload = try? decoder.decode(AWPhraseSyncPayload.self, from: data) else { return }
+            let applied = PhraseManager.shared.syncPhrasesFromiPhone(
+                phrasePayload.phraseItems,
+                orderRevision: phrasePayload.orderRevision,
+                activityRevision: phrasePayload.activityRevision
+            )
+            if !applied {
+                Log.error(Log.wc, "WatchConnectivityClient: rejected phrase sync (local rev \(PhraseManager.shared.orderRevision)/\(PhraseManager.shared.activityRevision), incoming \(phrasePayload.orderRevision ?? 0)/\(phrasePayload.activityRevision ?? 0)) - requesting a fresh full sync")
+                requestFullPhraseSyncIfPossible(via: WCSession.default)
+            }
+            // A rejected (stale) phrase payload must never leave the Watch stuck
+            // in "waiting for initial sync" or hide the phrase list.
             markInitialCompanionSyncReceived()
-            let items = phrasePayload.phraseItems
-            receivedPhrases = items.map { $0.text }
-            PhraseManager.shared.syncPhrasesFromiPhone(items)
+            receivedPhrases = PhraseManager.shared.allPhrases
 
         case .settingsSync:
             guard let settingsPayload = try? decoder.decode(AWSettingsSyncPayload.self, from: data) else { return }
@@ -183,10 +205,18 @@ final class WatchConnectivityClient: NSObject, ObservableObject {
             guard let jwt = try? decoder.decode(AWJWTPayload.self, from: data) else { return }
             markInitialCompanionSyncReceived()
             UserDefaults.standard.set(jwt.accessToken, forKey: "watchJWTToken")
-            currentAccessToken = jwt.accessToken
 
         case .calibrationReset:
+            // Reset to Default: clear the learned thresholds only. The Watch
+            // asks for calibration later, when tap detector is re-enabled.
             SurfaceTapDetector.shared.resetCalibration()
+            SurfaceTapDetector.shared.cancelCalibration()
+            calibrationCancelledTrigger += 1
+
+        case .recalibrationRequested:
+            // Recalibrate link confirmed: clear thresholds and open calibration.
+            SurfaceTapDetector.shared.resetCalibration()
+            calibrationResetTrigger += 1
 
         case .sessionReset:
             wasAccountDeleted = false
@@ -202,7 +232,7 @@ final class WatchConnectivityClient: NSObject, ObservableObject {
             guard let status = try? decoder.decode(AWSetupStatusResponsePayload.self, from: data) else { return }
             handleSetupStatusResponse(status)
 
-        case .messageHistory, .setupStatusRequest, .calibrationSync, .jwtRefreshRequest:
+        case .messageHistory, .setupStatusRequest, .calibrationSync, .phraseSyncRequest:
             break
         }
     }
@@ -237,7 +267,6 @@ final class WatchConnectivityClient: NSObject, ObservableObject {
         receivedVoiceGuidance = false
         receivedTapDetectorEnabled = false
         voiceGuidanceEnabledAt = nil
-        currentAccessToken = nil
 
         UserDefaults.standard.removeObject(forKey: initialCompanionSyncKey)
         UserDefaults.standard.removeObject(forKey: "watchJWTToken")
@@ -279,25 +308,6 @@ final class WatchConnectivityClient: NSObject, ObservableObject {
             Log.error(Log.wc, "WatchConnectivityClient: setup status request failed  - \(error.localizedDescription)")
         }
     }
-
-    func clearAccessToken() {
-        currentAccessToken = nil
-        UserDefaults.standard.removeObject(forKey: "watchJWTToken")
-    }
-
-    func requestTokenRefresh() {
-        guard WCSession.isSupported() else { return }
-        let payload = AWRefreshRequestPayload(type: .jwtRefreshRequest)
-        guard let data = try? encoder.encode(payload) else { return }
-        let session = WCSession.default
-        if session.isReachable {
-            session.sendMessageData(data, replyHandler: nil) { error in
-                Log.error(Log.wc, "WatchConnectivityClient: refresh request failed - \(error.localizedDescription)")
-            }
-        } else {
-            session.transferUserInfo(["payload": data])
-        }
-    }
 }
 
 extension WatchConnectivityClient: WCSessionDelegate {
@@ -306,6 +316,7 @@ extension WatchConnectivityClient: WCSessionDelegate {
         Task { @MainActor in
             self.refreshState(from: session)
             self.requestCompanionSetupStatusIfPossible(via: session)
+            self.requestFullPhraseSyncIfPossible(via: session)
             if let error {
                 Log.error(Log.wc, "WatchConnectivityClient: session activation failed  - \(error.localizedDescription)")
             }
@@ -316,6 +327,7 @@ extension WatchConnectivityClient: WCSessionDelegate {
         Task { @MainActor in
             self.refreshState(from: session)
             self.requestCompanionSetupStatusIfPossible(via: session)
+            self.requestFullPhraseSyncIfPossible(via: session)
         }
     }
 

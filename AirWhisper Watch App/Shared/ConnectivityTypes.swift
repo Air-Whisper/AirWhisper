@@ -5,6 +5,7 @@ import Foundation
 
 enum AWPayloadType: String, Codable, Equatable {
     case phraseSync
+    case phraseSyncRequest
     case messageHistory
     case contactSync
     case settingsSync
@@ -14,12 +15,8 @@ enum AWPayloadType: String, Codable, Equatable {
     case setupStatusRequest
     case setupStatusResponse
     case calibrationReset
+    case recalibrationRequested
     case calibrationSync
-    case jwtRefreshRequest
-}
-
-struct AWRefreshRequestPayload: Codable {
-    let type: AWPayloadType
 }
 
 struct AWJWTPayload: Codable {
@@ -59,11 +56,24 @@ struct AWPhraseItem: Codable {
 struct AWPhraseSyncPayload: Codable {
     let type: AWPayloadType
     let phraseItems: [AWPhraseItem]
+    let orderRevision: Int?
+    let activityRevision: Int?
 
-    init(type: AWPayloadType, phraseItems: [AWPhraseItem]) {
+    init(
+        type: AWPayloadType,
+        phraseItems: [AWPhraseItem],
+        orderRevision: Int? = nil,
+        activityRevision: Int? = nil
+    ) {
         self.type = type
         self.phraseItems = phraseItems
+        self.orderRevision = orderRevision
+        self.activityRevision = activityRevision
     }
+}
+
+struct AWPhraseSyncRequestPayload: Codable {
+    let type: AWPayloadType
 }
 
 struct AWContactSyncPayload: Codable {

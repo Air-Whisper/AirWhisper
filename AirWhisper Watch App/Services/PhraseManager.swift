@@ -31,68 +31,60 @@ final class PhraseManager: ObservableObject {
     }// return just the text for UI display.
 
     private let userDefaultsKey = "com.airwhisper.watchPhrases"
+    private let orderRevisionKey = "com.airwhisper.watch.phraseOrderRevision"
+    private let activityRevisionKey = "com.airwhisper.watch.phraseActivityRevision"
     //key used to store and retrieve the phrases from UserDefaults. To avoide conflict with other data in userdefaults.
 
-    private let cloudStore = NSUbiquitousKeyValueStore.default
-    private let cloudPhrasesKey = "phrases"
-    // iCloud KVS as a secondary sync path  - phrases sync via cloud even when iPhone isn't nearby.
-    
-    private init() {
-        loadPhrases()
-        startObservingCloudChanges()
-    }// private because we want only one instance, maintain singleton pattern.
-    
+    private(set) var orderRevision = 0
+    private(set) var activityRevision = 0
 
-    // load saved phrases from UserDefaults, falling back to iCloud if local is empty.
-    private func loadPhrases() {
-        if let data = UserDefaults.standard.data(forKey: userDefaultsKey),
-           let saved = try? JSONDecoder().decode([WatchPhrase].self, from: data) {
-            phrases = saved
-        } else if let cloudData = cloudStore.data(forKey: cloudPhrasesKey),
-                  let cloudPhrases = try? JSONDecoder().decode([AWPhraseItem].self, from: cloudData) {
-            // restore from iCloud if local is empty (new watch, same Apple ID)
-            syncPhrasesFromiPhone(cloudPhrases)
-        }
+    /// The Watch no longer uses iCloud KVS for phrases. The iPhone owns the
+    /// cloud backup (only for Apple ID sessions), and pushes phrases here over
+    /// WatchConnectivity. This legacy Watch-only KVS key used to restore a
+    /// stale snapshot on every fresh install, so purge it once.
+    private let legacyCloudStore = NSUbiquitousKeyValueStore.default
+    private let legacyCloudPhrasesKey = "phrases"
+
+    private init() {
+        orderRevision = UserDefaults.standard.integer(forKey: orderRevisionKey)
+        activityRevision = UserDefaults.standard.integer(forKey: activityRevisionKey)
+        loadPhrases()
+        purgeLegacyCloudSnapshot()
+    }// private because we want only one instance, maintain singleton pattern.
+
+    private func purgeLegacyCloudSnapshot() {
+        legacyCloudStore.removeObject(forKey: legacyCloudPhrasesKey)
+        legacyCloudStore.synchronize()
+    }
+
+    /// Every local change advances the same wall-clock version the iPhone uses,
+    /// so revisions from either device can be compared directly. Without this,
+    /// a Watch-added phrase was sent with the iPhone's older orderRevision and
+    /// got rejected by the companion as stale.
+    private func bumpLocalRevision() {
+        let now = Int(Date().timeIntervalSince1970 * 1_000)
+        orderRevision = max(orderRevision + 1, now)
+        activityRevision = 0
     }
     
+
+    // Phrases are always pushed from the iPhone over WatchConnectivity. Only
+    // the last synced list is cached locally - no iCloud restore on the Watch.
+    private func loadPhrases() {
+        guard let data = UserDefaults.standard.data(forKey: userDefaultsKey),
+              let saved = try? JSONDecoder().decode([WatchPhrase].self, from: data) else { return }
+        phrases = saved
+    }
+
     private func savePhrases() {
+        UserDefaults.standard.set(orderRevision, forKey: orderRevisionKey)
+        UserDefaults.standard.set(activityRevision, forKey: activityRevisionKey)
+
         if let data = try? JSONEncoder().encode(phrases) {
             UserDefaults.standard.set(data, forKey: userDefaultsKey)
         }
-        // also mirror to iCloud KVS as AWPhraseItem format (same format the iPhone uses)
-        let items = phrases.map { AWPhraseItem(text: $0.text, useCount: $0.useCount) }
-        if let cloudData = try? JSONEncoder().encode(items) {
-            cloudStore.set(cloudData, forKey: cloudPhrasesKey)
-        }
     }
 
-
-    private func startObservingCloudChanges() {
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(cloudStoreDidChange(_:)),
-            name: NSUbiquitousKeyValueStore.didChangeExternallyNotification,
-            object: cloudStore
-        )
-        cloudStore.synchronize()
-    }
-    // registers for iCloud KVS changes so phrases update even without WatchConnectivity.
-
-    @objc private func cloudStoreDidChange(_ notification: Notification) {
-        guard let userInfo = notification.userInfo,
-              let reason = userInfo[NSUbiquitousKeyValueStoreChangeReasonKey] as? Int,
-              (reason == NSUbiquitousKeyValueStoreServerChange ||
-               reason == NSUbiquitousKeyValueStoreInitialSyncChange),
-              let changedKeys = userInfo[NSUbiquitousKeyValueStoreChangedKeysKey] as? [String],
-              changedKeys.contains(cloudPhrasesKey) else { return }
-
-        // phrases changed on another device  - pull and apply
-        guard let cloudData = cloudStore.data(forKey: cloudPhrasesKey),
-              let items = try? JSONDecoder().decode([AWPhraseItem].self, from: cloudData) else { return }
-        syncPhrasesFromiPhone(items)
-    }
-    // when iCloud delivers new phrase data from another device, apply it locally.
-    
     // When a phrase is used, we want to promote it to the top of the list and update usage counts.
     
     func markPhraseUsed(_ phraseText: String) {
@@ -100,7 +92,23 @@ final class PhraseManager: ObservableObject {
         guard let idx = phrases.firstIndex(where: { $0.text.uppercased() == key }) else { return }
         
         phrases[idx].useCount += 1
-        
+
+        let helpPhrase = phrases.first(where: { $0.text.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() == "HELP" })
+        let rankedPhrases = phrases.enumerated()
+            .filter { $0.element.text.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() != "HELP" }
+            .sorted { lhs, rhs in
+                if lhs.element.useCount == rhs.element.useCount {
+                    return lhs.offset < rhs.offset
+                }
+                return lhs.element.useCount > rhs.element.useCount
+            }
+            .map { $0.element }
+        phrases = rankedPhrases
+        if let helpPhrase {
+            phrases.insert(helpPhrase, at: 0)
+        }
+        bumpLocalRevision()
+
         savePhrases()
         objectWillChange.send()
         
@@ -129,6 +137,7 @@ final class PhraseManager: ObservableObject {
             phrases.append(WatchPhrase(text: trimmed))
         }
         
+        bumpLocalRevision()
         savePhrases()
         syncPhrasesToiPhone()
         return true
@@ -140,6 +149,7 @@ final class PhraseManager: ObservableObject {
         let target = phrases[index]
         if target.text.uppercased() == "HELP" { return } // Protect Help
         phrases.remove(at: index)
+        bumpLocalRevision()
         savePhrases()
         syncPhrasesToiPhone()
     }
@@ -149,12 +159,28 @@ final class PhraseManager: ObservableObject {
         let key = phrase.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         if key == "HELP" { return } // Protect Help
         phrases.removeAll { $0.text.uppercased() == key }
+        bumpLocalRevision()
         savePhrases()
         syncPhrasesToiPhone()
     }
     
     //Sync with iPhone - replace local phrases with the ones received from iPhone, ensuring no duplicates.
-    func syncPhrasesFromiPhone(_ items: [AWPhraseItem]) {
+    @discardableResult
+    func syncPhrasesFromiPhone(
+        _ items: [AWPhraseItem],
+        orderRevision incomingOrderRevision: Int? = nil,
+        activityRevision incomingActivityRevision: Int? = nil
+    ) -> Bool {
+        let incomingOrderRevision = incomingOrderRevision ?? 0
+        let incomingActivityRevision = incomingActivityRevision ?? 0
+        guard incomingOrderRevision > orderRevision ||
+                (incomingOrderRevision == orderRevision && incomingActivityRevision >= activityRevision) else {
+            return false
+        }
+
+        orderRevision = incomingOrderRevision
+        activityRevision = incomingActivityRevision
+
         var seen: Set<String> = []
         var newPhrases: [WatchPhrase] = []
         var helpItem: AWPhraseItem?
@@ -183,11 +209,16 @@ final class PhraseManager: ObservableObject {
         
         phrases = newPhrases
         savePhrases()
+        return true
     }
 
     func clearLocalPhrases() {
         phrases = []
         UserDefaults.standard.removeObject(forKey: userDefaultsKey)
+        orderRevision = 0
+        activityRevision = 0
+        UserDefaults.standard.removeObject(forKey: orderRevisionKey)
+        UserDefaults.standard.removeObject(forKey: activityRevisionKey)
     }
     
     
@@ -195,7 +226,12 @@ final class PhraseManager: ObservableObject {
     
     private func syncPhrasesToiPhone() {
         let items = phrases.map { AWPhraseItem(text: $0.text, useCount: $0.useCount) }
-        let payload = AWPhraseSyncPayload(type: .phraseSync, phraseItems: items)
+        let payload = AWPhraseSyncPayload(
+            type: .phraseSync,
+            phraseItems: items,
+            orderRevision: orderRevision,
+            activityRevision: activityRevision
+        )
         Task { @MainActor in
             WatchConnectivityClient.shared.sendPhraseSync(payload)
         }
