@@ -5,6 +5,7 @@ import Foundation
 
 enum AWPayloadType: String, Codable, Equatable {
     case phraseSync
+    case phraseSyncRequest
     case messageHistory
     case contactSync
     case settingsSync
@@ -69,6 +70,10 @@ struct AWPhraseSyncPayload: Codable {
         self.orderRevision = orderRevision
         self.activityRevision = activityRevision
     }
+}
+
+struct AWPhraseSyncRequestPayload: Codable {
+    let type: AWPayloadType
 }
 
 struct AWContactSyncPayload: Codable {

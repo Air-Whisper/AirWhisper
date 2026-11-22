@@ -82,10 +82,19 @@ final class WatchConnectivityClient: NSObject, ObservableObject {
         let session = WCSession.default
         refreshState(from: session)
         requestCompanionSetupStatusIfPossible(via: session)
+        requestFullPhraseSyncIfPossible(via: session)
     }
 
     func sendPhraseSync(_ payload: AWPhraseSyncPayload) {
         send(payload)
+    }
+
+    /// Ask the companion for the complete phrase list with a fresh revision.
+    /// Used on launch/activation so a freshly installed Watch is never left
+    /// with an empty or stale local cache.
+    private func requestFullPhraseSyncIfPossible(via session: WCSession) {
+        guard session.activationState == .activated, session.isCompanionAppInstalled else { return }
+        send(AWPhraseSyncRequestPayload(type: .phraseSyncRequest))
     }
 
     func sendCalibration(down: Double, up: Double, timing: TimeInterval) {
@@ -148,11 +157,15 @@ final class WatchConnectivityClient: NSObject, ObservableObject {
 
         case .phraseSync:
             guard let phrasePayload = try? decoder.decode(AWPhraseSyncPayload.self, from: data) else { return }
-            _ = PhraseManager.shared.syncPhrasesFromiPhone(
+            let applied = PhraseManager.shared.syncPhrasesFromiPhone(
                 phrasePayload.phraseItems,
                 orderRevision: phrasePayload.orderRevision,
                 activityRevision: phrasePayload.activityRevision
             )
+            if !applied {
+                Log.error(Log.wc, "WatchConnectivityClient: rejected phrase sync (local rev \(PhraseManager.shared.orderRevision)/\(PhraseManager.shared.activityRevision), incoming \(phrasePayload.orderRevision ?? 0)/\(phrasePayload.activityRevision ?? 0)) - requesting a fresh full sync")
+                requestFullPhraseSyncIfPossible(via: WCSession.default)
+            }
             // A rejected (stale) phrase payload must never leave the Watch stuck
             // in "waiting for initial sync" or hide the phrase list.
             markInitialCompanionSyncReceived()
@@ -219,7 +232,7 @@ final class WatchConnectivityClient: NSObject, ObservableObject {
             guard let status = try? decoder.decode(AWSetupStatusResponsePayload.self, from: data) else { return }
             handleSetupStatusResponse(status)
 
-        case .messageHistory, .setupStatusRequest, .calibrationSync:
+        case .messageHistory, .setupStatusRequest, .calibrationSync, .phraseSyncRequest:
             break
         }
     }
@@ -303,6 +316,7 @@ extension WatchConnectivityClient: WCSessionDelegate {
         Task { @MainActor in
             self.refreshState(from: session)
             self.requestCompanionSetupStatusIfPossible(via: session)
+            self.requestFullPhraseSyncIfPossible(via: session)
             if let error {
                 Log.error(Log.wc, "WatchConnectivityClient: session activation failed  - \(error.localizedDescription)")
             }
@@ -313,6 +327,7 @@ extension WatchConnectivityClient: WCSessionDelegate {
         Task { @MainActor in
             self.refreshState(from: session)
             self.requestCompanionSetupStatusIfPossible(via: session)
+            self.requestFullPhraseSyncIfPossible(via: session)
         }
     }
 

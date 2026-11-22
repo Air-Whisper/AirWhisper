@@ -266,6 +266,13 @@ extension WatchConnectivityManager: WCSessionDelegate {
         case .setupStatusRequest:
             sendSetupStatusReply(reply)
 
+        case .phraseSyncRequest:
+            // Watch asked for the full list (e.g. right after install/reset).
+            // Re-send with a freshly bumped revision so the Watch accepts it.
+            DispatchQueue.main.async {
+                DataManager.shared.resyncPhrasesToWatch()
+            }
+
         case .phraseSync:
             guard let phrasePayload = try? decoder.decode(AWPhraseSyncPayload.self, from: data) else { return }
             DispatchQueue.main.async {

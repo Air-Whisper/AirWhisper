@@ -485,6 +485,13 @@ final class DataManager: ObservableObject {
     }
     // Saves the current contacts to UserDefaults and syncs them to the Watch.
 
+    /// Pushes the complete phrase list with a fresh revision. Used when the
+    /// Watch requests a full sync on launch, so a stale local cache can never
+    /// keep rejecting the canonical list.
+    func resyncPhrasesToWatch() {
+        savePhrases()
+    }
+
     private func savePhrases(syncToWatch: Bool = true) {
         if syncToWatch {
             let currentTimeRevision = Int(Date().timeIntervalSince1970 * 1_000)
